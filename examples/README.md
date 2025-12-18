@@ -1,7 +1,7 @@
 # Examples
 
 ```
-cargo run --example compile
+cargo run --example compile --features compile
 
 Program "compiled" (39b):
 
@@ -15,7 +15,7 @@ Program "compiled" (39b):
 Compiles file `programs/count.txt` and prints out the disassembled binary.
 
 ```
-cargo run --example run
+cargo run --example run --features compile
 
 --------------------------------
 compile|   000a|STA@FLG|Run ...|
@@ -30,7 +30,7 @@ REGS@@@|      1|      0|      0|
 Compiles file `programs/count.txt` and continuously runs it at 250ms per instruction.
 
 ```
-cargo run --example surface_term
+cargo run --example surface_term --features compile
 
 ╔════════════════════════════════════════════════════════════════╗ --------------------------------
 ║                                                                ║ compile|   0036|STA@FLG|Hlt ZCS|
@@ -50,7 +50,7 @@ Compiles file `programs/starfield.txt` and continuously runs it at 30 frames-per
 Uses the **surface** interrupt defined in `int_surface_term.rs` to draw to a bitplane framebuffer, which is then printed to the terminal.
 
 ```
-cargo run --example surface_sdl2
+cargo run --example surface_sdl2 --features compile
 ```
 
 ![surface_sdl2 example output](surface_sdl2.png)

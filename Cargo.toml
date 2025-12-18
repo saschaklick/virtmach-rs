@@ -9,9 +9,10 @@ name = "virtmach"
 path = "src/lib.rs"
 
 [features]
-default = ["std", "full"]
+default = ["full"]
 std = ["bytes"]
 random = ["nostd_structs"]
+compile = ["full", "std"]
 full = ["random"]
 i8 = []
 i16 = []
