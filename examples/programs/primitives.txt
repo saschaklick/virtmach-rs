@@ -1,0 +1,105 @@
+; Move a point on screen and draw different primitives along with it.                                                    
+    #req math
+    #req random
+    #req surface
+
+    #def X  r0
+    #def Y  r1
+    #def DX r2
+    #def DY r3
+    #def SURFACE_WIDTH  r4
+    #def SURFACE_HEIGHT r5
+    #def TMP_0 r6    
+    #def TMP_1 r7
+        
+        reg X
+        set #11
+        reg Y
+        set #13
+        reg DX
+        set #1
+        reg DY
+        set #1 
+
+        SURFACE_WIDTH, SURFACE_HEIGHT = surface.get_size()        
+
+        surface.set_clip(#0, #0, SURFACE_WIDTH, SURFACE_HEIGHT)
+        
+    loop:        
+        surface.clear(#0)
+    check_x_min:
+        reg X
+        add DX              
+        inv
+        jpz check_x_max
+        reg DX
+        set #1
+        jmp check_y_min            
+    check_x_max:
+        psh X        
+        sub SURFACE_WIDTH
+        pop X                
+        jps check_y_min 
+        reg DX
+        set #-1
+    check_y_min:
+        reg Y
+        add DY              
+        inv
+        jpz check_y_max
+        reg DY
+        set #1
+        jmp check_end        
+    check_y_max:
+        psh Y
+        sub SURFACE_HEIGHT
+        pop Y        
+        jps check_end
+        reg DY
+        set #-1
+    check_end:
+            
+        reg TMP_0
+        set SURFACE_WIDTH
+        sub X
+        reg TMP_1        
+        set SURFACE_HEIGHT
+        sub Y            
+        surface.draw_rect(X, Y, TMP_0, TMP_1, #1)        
+    
+        surface.fill_rect(#0, #0, X, Y, #1)      
+
+        reg TMP_0
+        set SURFACE_HEIGHT
+        sub #1
+        reg TMP_1
+        set X
+        sub #1
+        surface.draw_line(TMP_1, Y, #0, TMP_0, #1)        
+
+        reg TMP_0
+        set SURFACE_WIDTH                
+        sub X        
+        surface.draw_border(X, #0, TMP_0, Y, #1)                
+
+        reg TMP_0
+        set X
+        add #2                               
+        reg TMP_1
+        set Y
+        add #2 
+        surface.draw_image(TMP_0, TMP_1, #254)
+
+        surface.draw_pixel(X, Y, #0)      
+        
+        reg TMP_0
+        set X
+        sub #1
+        reg TMP_1
+        set Y
+        sub #1
+        surface.draw_pixel(TMP_0, TMP_1, #0)
+        
+    end:
+        hlt
+        jmp loop

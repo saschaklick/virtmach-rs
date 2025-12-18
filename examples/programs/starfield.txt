@@ -1,0 +1,212 @@
+; Starfield          
+    #req math
+    #req random
+    #req surface
+
+    #def POINTS_AMOUNT  r6  ; total amount of moving points to draw
+    #def RANDOM_AMOUNT  #8  ; total amount of random dots per frame
+    #def SURFACE_WIDTH  r7  ; width of the surface
+    #def SURFACE_HEIGHT r8  ; height of the surface
+    #def MID_X          r9  ; horizontal midpoint of the surface
+    #def MID_Y          r10 ; vertical midpoint of the surface
+    #def POINT_ADDR     r1  ; globally kept memory address of the current point
+    
+        reg POINTS_AMOUNT
+        set #12
+         
+        SURFACE_WIDTH, SURFACE_HEIGHT = surface.get_size()                        
+        MID_X = math.div(SURFACE_WIDTH, #2)
+        MID_Y = math.div(SURFACE_HEIGHT, #2)        
+
+        reg POINT_ADDR
+        set #0
+    for_each_init:
+        cal init_x
+        reg POINT_ADDR
+        add #1
+        cal init_y
+        reg POINT_ADDR
+        add #1
+
+        psh POINT_ADDR
+        sub POINTS_AMOUNT
+        pop POINT_ADDR
+        inv
+        jpz for_each_init        
+        
+    loop:
+        hlt
+        cal clear_screen        
+        
+        reg POINT_ADDR
+        set #0
+    for_each_point:                
+        cal draw_rect
+        cal move_point       
+        cal check_point 
+
+        reg POINT_ADDR
+        add #2
+        
+        psh POINT_ADDR
+        sub POINTS_AMOUNT
+        pop POINT_ADDR
+        inv
+        jpz for_each_point    
+    
+        reg POINT_ADDR
+        set RANDOM_AMOUNT
+    for_each_random_dot:
+        psh #1
+
+        _ = rand(#0, SURFACE_HEIGHT)
+        _ = rand(#0, SURFACE_WIDTH)
+        surface.draw_pixel(_)
+
+        reg POINT_ADDR
+        sub #1
+        inv
+        jpz for_each_random_dot: 
+
+    loop_end:        
+        jmp loop
+
+    init_x:
+        r0 = rand(#-16, #16)        
+        reg r0
+        sto POINT_ADDR
+        ret
+    init_y:
+        r0 = rand(#-1, #1)                
+        reg r0        
+        sto POINT_ADDR
+        ret
+
+    clear_screen:
+        surface.clear(#0)        
+        ret
+
+    draw_rect:                
+        psh POINT_ADDR
+        
+        reg POINT_ADDR
+        add #1
+        
+        psh #1         ;rect color
+        psh #2         ;rect width
+        psh #2         ;rect height
+
+        reg r0
+        loa POINT_ADDR
+        add MID_Y
+        psh r0         ;rect y
+
+        reg POINT_ADDR
+        sub #1
+        
+        reg r0
+        loa POINT_ADDR
+        add MID_X
+        psh r0         ;rect x
+        
+        surface.fill_rect(_)
+        
+        pop POINT_ADDR
+        ret
+
+    move_point:
+        reg r2
+        set #2
+        cal mov_coord        
+        reg POINT_ADDR
+        add #1
+        reg r2
+        set #1
+        cal mov_coord
+        reg POINT_ADDR
+        sub #1        
+        
+        ret
+
+    mov_coord:                
+        reg r4
+        set #1
+        r4 = mul(r4, r2)        
+
+        reg r3
+        loa POINT_ADDR
+        add #0        
+        ;jpz done
+        jps neg
+    pos:        
+        reg r3
+        add r4                
+        jmp done
+    neg:
+        reg r3
+        sub r4
+    done:                        
+        sto POINT_ADDR
+        ret    
+
+    check_point:
+    #def SUM_XY r2
+        psh SUM_XY
+        psh POINT_ADDR
+        
+        reg r0
+        loa POINT_ADDR
+        reg SUM_XY
+        set r0
+        reg r0
+        sub MID_X               
+        inv
+        jps check_init
+        loa POINT_ADDR        
+        neg
+        sub MID_X
+        inv
+        jps check_init
+
+        reg POINT_ADDR
+        add #1
+
+        reg r0
+        loa POINT_ADDR
+        reg SUM_XY
+        add #0
+        inv
+        jpz check_y
+        add r0
+        jpz check_init
+    check_y:
+        reg r0
+        sub MID_Y                        
+        inv
+        jps check_init
+        loa POINT_ADDR        
+        neg
+        sub MID_Y
+        inv
+        jps check_init
+
+        jmp check_end 
+    check_init:
+        pop POINT_ADDR
+        psh POINT_ADDR
+        cal init_x
+        reg POINT_ADDR
+        add #1
+        cal init_y        
+    check_end:           
+        pop POINT_ADDR
+        pop SUM_XY
+        ret
+
+    ; Count up register 0 and memory address 0
+    start:
+        reg r0
+        add #1
+        sto #0
+        hlt
+        jmp start
