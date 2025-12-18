@@ -34,6 +34,3 @@ pub fn load_file(filename: &str) -> Result<(String, String), std::io::Error> {
         Err(err) => Err(err)
     }
 }
-
-#[allow(dead_code)]
-pub fn main(){ }

@@ -6,7 +6,9 @@ authors = ["Sascha Klick"]
 
 [lib]
 name = "virtmach"
+crate-type = ["lib"]
 path = "src/lib.rs"
+
 
 [features]
 default = ["full"]

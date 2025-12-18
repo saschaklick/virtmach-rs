@@ -136,6 +136,3 @@ impl SoftInterrupt for IntSurface <'_> {
         }        
     }
 }
-
-#[allow(dead_code)]
-fn main() {}
