@@ -1,0 +1,24 @@
+; Increase register 0 and memory address 0, perform some interrupts calls and loop
+   #req math
+    
+    start:
+        reg r0        ; activate register r0
+        add #1        ; increase the activated register r0 by 1
+        sto #0        ; store the content of register r0 at memory address 0
+        
+        psh #2        ; put r0 to the power of 2 into r1
+        psh r0        ;
+        psh #8        ;
+        int math      ;
+        pop r1        ;
+
+        psh #5        ; put current cycle count (overall operations executed)
+        int proc      ; into r3 ...
+        pop r3        ;
+        reg r3        ;
+        sto #1        ; ... and memory address 1
+
+        r2 = div(r0, #2)
+
+        hlt           ; halt/pause execution        
+        jmp start     ; loop back to start of the listing
