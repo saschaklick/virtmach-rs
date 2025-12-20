@@ -38,7 +38,7 @@ As mentioned, the size of the memory is user configurable. Reducing it to 0 is p
 
 The number of 14 registers could be reduced if fewer are required.
 
-The most powerful scaleability is the choice of three register/memory entry sizes, 8, 16 and 32 bit, chosen with he **i8**, **i16** or **i32** feature in `Cargo.toml`.
+The most powerful scaleability option is the choice of three register/memory entry sizes, 8, 16 and 32 bit, chosen with he **i8**, **i16** or **i32** feature in `Cargo.toml`.
 
 ### Extendability
 
