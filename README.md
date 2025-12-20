@@ -10,9 +10,9 @@ A basic assembler/compiler is provided to turn op code listings into a binary fo
 
 *virtmach* was developed to run on small to very small microcontrollers. The processor can be compiled leaving a sub-2kb footprint when stripped down to the processor core.
 
-The processor exposes 15 registers (**r0** - **r14**) and an memory area of adjustable size.
+The processor exposes 15 registers (**r0** - **r14**) and a memory area of adjustable size.
 
-The memory contains both a flat address space to load and store single data value by address, but also contains a stack growing down from the end of the memory to allow facilitate subroutine calling and push/pop instructions.
+The memory contains both a flat address space to load and store single data value by address, but also contains a stack growing down from the end of the memory to facilitate subroutine calling and push/pop instructions.
 
 ```
 ; Set register 3 to value -95, then store the value in memory location 14.
