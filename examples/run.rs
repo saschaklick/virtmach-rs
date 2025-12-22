@@ -1,13 +1,13 @@
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{SoftInterrupt, Proc, Math, Random, BASE_INTERRUPTS_DEFS};
+use virtmach::interrupts::{ SoftInterrupt, Proc, Math, Random };
 
 mod helpers;
 
 fn main(){
     match helpers::load_file("examples/programs/count.txt") {
         Ok(content) => {            
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), BASE_INTERRUPTS_DEFS) {
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), vec![]) {
                 Ok(res) => {                    
                     let program = res.0;
 

@@ -5,12 +5,11 @@ use sdl2::{ event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{self, SoftInterrupt, Proc, Math, Random};
+use virtmach::interrupts::{self, SoftInterrupt, Proc, Math, Random };
 
 mod helpers;
 
 mod int_surface_sdl2;
-use int_surface_sdl2::{IntSurface, DEF};
 
 const W: usize = 64;
 const H: usize = 40;
@@ -18,12 +17,8 @@ const SCALE: f32 = 5.0;
 
 fn main() -> Result<(), String> {
     match helpers::load_file("examples/programs/primitives.txt") {
-        Ok(content) => {
-            let mut interrups = [&interrupts::DummyDef;16];                        
-            interrups[0..interrupts::BASE_INTERRUPTS_DEFS.len()].copy_from_slice(interrupts::BASE_INTERRUPTS_DEFS);                        
-            interrups[interrupts::BASE_INTERRUPTS_DEFS.len()] = &DEF;                                
-            
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), &interrups) {
+        Ok(content) => {            
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [(String::from(interrupts::SurfaceMap.0), String::from(interrupts::SurfaceMap.1))].to_vec()) {
                 Ok(res) => {                    
                     let program = res.0;
 
@@ -64,7 +59,7 @@ fn main() -> Result<(), String> {
                             }
                         }                        
 
-                        let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }];                            
+                        let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }];                            
                         
                         vm.run(1024, interrupts);
 

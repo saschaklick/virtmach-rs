@@ -18,7 +18,7 @@
         reg r3        ;
         sto #1        ; ... and memory address 1
 
-        r2 = div(r0, #2)
+        r2 = math.div(r0, #2)
 
         hlt           ; halt/pause execution        
         jmp start     ; loop back to start of the listing

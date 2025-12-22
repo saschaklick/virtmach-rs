@@ -9,7 +9,6 @@ name = "virtmach"
 crate-type = ["lib"]
 path = "src/lib.rs"
 
-
 [features]
 default = ["full"]
 std = ["bytes"]
@@ -25,7 +24,9 @@ cfg_block = "0.2.0"
 log = { version = "0.4.27"  }
 bytes = { version = "1.10.1", optional = true }
 nostd_structs = { version = "0.5.0", optional = true }
+csv = "1.4.0"
 
 [dev-dependencies]
 bitmap_writer = { version = "0.1.2", features = ["std"] }
 sdl2 = "0.38.0"
+

@@ -1,17 +1,15 @@
-use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, SoftInterruptDef }};
+use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt }};
 
 #[allow(dead_code)]
-pub static DEF: SoftInterruptDef = SoftInterruptDef {
-    name: "proc",
-    functions: &[
-        SoftInterruptFunction { no:  0, name: "version", arguments: 0, returns: 3 },
-        SoftInterruptFunction { no:  1, name: "atom_size",  arguments: 0, returns: 1 },
-        SoftInterruptFunction { no:  2, name: "mem_size",  arguments: 0, returns: 1 },
-        SoftInterruptFunction { no:  3, name: "stack_ptr", arguments: 0, returns: 1 },
-        SoftInterruptFunction { no:  4, name: "prog_cnt", arguments: 0, returns: 1 },
-        SoftInterruptFunction { no:  5, name: "cycle_cnt", arguments: 0, returns: 1 }
-    ]
-};
+pub const MAP: (&str, &str) = (
+"proc",
+"0, version,   0, 3,
+ 1, atom_size, 0, 1,
+ 2, mem_size,  0, 1,
+ 3, stack_ptr, 0, 1,
+ 4, prog_cnt,  0, 1,
+ 5, cycle_cnt, 0, 1,
+");
 
 pub struct Interrupt {}
 

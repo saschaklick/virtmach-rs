@@ -22,6 +22,8 @@ pub use processor::*;
 
 cfg_block!{
     #[cfg(feature="std")] {        
-        mod compile;  
+        mod compile; 
+        
+        pub use compile::*; 
     }
 }

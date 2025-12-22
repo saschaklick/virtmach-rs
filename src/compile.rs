@@ -3,9 +3,10 @@ extern crate std;
 
 use alloc::alloc::{alloc_zeroed, Layout};
 use bytes::{BufMut, BytesMut};
-use std::{collections::HashMap, vec::Vec, slice};
+use std::{collections::HashMap, vec::Vec, slice, string::String, format };
+use csv;
 
-use crate::{ATOM_ID, opcodes::OpCode, Program, VAtomMut, VMAtom, VirtMach, interrupts::{SoftInterruptDef}};
+use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, opcodes::OpCode, interrupts::BASE_INTERRUPT_MAPS};
 
 #[derive(Debug)]
 pub enum ListingError <'a> {
@@ -19,7 +20,7 @@ pub enum ListingError <'a> {
     UnknownLabel(usize, &'a str),    
     UnknownInterrupt(usize, &'a str),
     UnknownFunction(usize, &'a str),
-    MalformedFunction(usize, &'a str),    
+    MalformedFunction(usize, &'a str)    
 }
 
 #[derive(Copy, Clone)]
@@ -47,7 +48,7 @@ pub enum Argument <'a> {
 
 impl VirtMach <'_> {
     
-    pub fn parse_argument <'a> (mut arg: &'a str, defines: &HashMap::<&'a str, &'a str>) -> Argument<'a> {
+    fn parse_argument <'a> (mut arg: &'a str, defines: &HashMap::<&'a str, &'a str>) -> Argument<'a> {
         defines.get(arg).inspect(|value|{ arg = value; });
         if arg.is_empty() { Argument::Empty() } else
         if arg == "_" { Argument::Ignore() } else { match &arg[0..1] {
@@ -69,8 +70,46 @@ impl VirtMach <'_> {
             _ => Argument::Label(arg)
         } }
     }
+
+    fn parse_function_map(external_interrupts: Vec::<(String, String)>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
+        let mut map: HashMap::<String, (u8, VMAtom, usize, usize)> = HashMap::new();
+
+        fn add(map: &mut HashMap::<String, (u8, VMAtom, usize, usize)>, int_no: u8, int_name: &str, int_csv: &str) {
+            map.insert(String::from(int_name), (int_no as u8, 0, 0, 0));
+            
+            let mut rdr = csv::ReaderBuilder::new()
+                .has_headers(false)
+                .from_reader(int_csv.as_bytes());
+            for result in rdr.records() {            
+                if result.is_ok() {
+                    let record = result.unwrap();                
+                    if record.len() == 5 {
+                        let func_no = record[0].trim().parse::<VMAtom>().unwrap();
+                        let func_name = &record[1];
+                        let arg_cnt = record[2].trim().parse::<usize>().unwrap();
+                        let res_cnt = record[3].trim().parse::<usize>().unwrap();
+                        
+                        let func = (int_no as u8, func_no, arg_cnt, res_cnt);                    
+                        map.insert(format!("{}.{}", int_name, func_name.trim()), func);
+                    }        
+                }
+            }
+        }
+        
+        for (int_no, (int_name, int_csv)) in BASE_INTERRUPT_MAPS.iter().enumerate() {
+            add(&mut map, int_no as u8, *int_name, *int_csv);
+        }
+
+        for (ext_no, (int_name, int_csv)) in external_interrupts.iter().enumerate() {
+            add(&mut map, (ext_no + BASE_INTERRUPT_MAPS.len()) as u8, int_name.as_str(), int_csv.as_str());
+        }    
     
-    pub fn compile <'a> (name: &'a str, listing: &'a str, interrupts: &[&SoftInterruptDef]) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {        
+        return map;
+    }
+    
+    pub fn compile <'a> (name: &'a str, listing: &'a str, function_definitions: Vec::<(String, String)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {        
+        let functions = VirtMach::parse_function_map(function_definitions);        
+        
         let mut dest = BytesMut::new(); 
         
         dest.put_u8(ATOM_ID);               
@@ -82,7 +121,7 @@ impl VirtMach <'_> {
         let mut jumps = [Jump { label: "", address: 0, line_no: 0 };128];
         let mut jumps_i = 0usize;
                   
-        let mut defines = HashMap::<&str, &str>::new();        
+        let mut defines = HashMap::<&str, &str>::new();         
                 
         for (i, mut line) in listing.lines().enumerate() {   
             let line_no = i + 1;
@@ -107,12 +146,8 @@ impl VirtMach <'_> {
                         }
                         "req" => {
                             if def.len() == 2 {
-                                let int_name = def[1].trim();
-                                let mut found = false;
-                                for int_def in interrupts {
-                                    if int_name == int_def.name { found = true; break; }
-                                }
-                                if found == false { return Err(ListingError::MalformedDefine(line_no, "required interrupt not found")); }
+                                let int_name = def[1].trim();                                 
+                                if !functions.contains_key(int_name) { return Err(ListingError::MalformedDefine(line_no, "required interrupt not found")); }
                             }else{
                                 return Err(ListingError::MalformedDefine(line_no, "malformed req"));
                             }  
@@ -153,16 +188,12 @@ impl VirtMach <'_> {
                 let ignore_inputs = inputs.len() == 1 && inputs[0] == Argument::Ignore();
                 let ignore_outputs = outputs.len() == 1 && outputs[0] == Argument::Ignore();
                                 
-                let mut function: Option<[u8;2]> = None;
-                for (int_no, int_def) in interrupts.iter().enumerate() {                    
-                    for int_func in int_def.functions {
-                        let names = [int_func.name, &[int_def.name, int_func.name].join(".")];
-                        if names.contains(&function_str) {
-                            if !ignore_inputs && int_func.arguments != inputs.len() { std::println!("{:?}", inputs); return Err(ListingError::MalformedFunction(line_no, "wrong number of arguments")); }
-                            if !ignore_outputs && int_func.returns != outputs.len() { return Err(ListingError::MalformedFunction(line_no, "wrong number of return values")); }
-                            function = Some([int_no as u8, int_func.no as u8]);
-                        }
-                    }
+                let mut function: Option<(u8, VMAtom)> = None;
+                if functions.contains_key(function_str) {
+                    let func = functions.get(function_str).unwrap();
+                    if !ignore_inputs && func.2 != inputs.len() { std::println!("{:?}", inputs); return Err(ListingError::MalformedFunction(line_no, "wrong number of arguments")); }
+                    if !ignore_outputs && func.3 != outputs.len() { return Err(ListingError::MalformedFunction(line_no, "wrong number of return values")); }
+                    function = Some((func.0, func.1));
                 }                
 
                 if function.is_none() { return Err(ListingError::UnknownFunction(line_no, function_str)); }
@@ -204,9 +235,9 @@ impl VirtMach <'_> {
                 }
 
                 dest.put_u8(OpCode::PSH as u8 | (0x0f << 4));
-                dest.put_atom(function.unwrap()[1] as VMAtom);
+                dest.put_atom(function.unwrap().1 as VMAtom);
                 len += 1 + size_of::<VMAtom>();
-                dest.put_u8(OpCode::INT as u8 | (function.unwrap()[0] << 4));
+                dest.put_u8(OpCode::INT as u8 | (function.unwrap().0 << 4));
                 len += 1;
 
                 if !ignore_outputs {
@@ -300,14 +331,8 @@ impl VirtMach <'_> {
                     } else {
                         match op_res {
                             OpCode::INT => {
-                                let mut num = None;
-                                for (i, def) in interrupts.iter().enumerate() {                                    
-                                    if def.name == label {
-                                        num = Some(i as u8);
-                                    }
-                                }
-                                if num.is_some() {
-                                    dest.put_u8(op_u8 | (num.unwrap() << 4) as u8);                                    
+                                if functions.contains_key(label) {
+                                    dest.put_u8(op_u8 | (functions.get(label).unwrap().0 << 4) as u8);                                    
                                     len += 1;
                                 }else{
                                     return Err(ListingError::UnknownInterrupt(line_no, label));

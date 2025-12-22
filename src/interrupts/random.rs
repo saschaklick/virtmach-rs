@@ -1,12 +1,9 @@
-use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{SoftInterrupt, SoftInterruptFunction, SoftInterruptDef}};
+use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt }};
 
 #[allow(dead_code)]
-pub static DEF: SoftInterruptDef = SoftInterruptDef { 
-    name: "random",   
-    functions: &[
-        SoftInterruptFunction { no:  0, name: "rand", arguments: 2, returns: 1 }
-    ]
-};
+pub const MAP: (&str, &str) = (
+"random","0, range, 2, 1,
+");
 
 use nostd_structs::algos::rand;
 

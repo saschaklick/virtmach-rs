@@ -59,8 +59,8 @@
     for_each_random_dot:
         psh #1
 
-        _ = rand(#0, SURFACE_HEIGHT)
-        _ = rand(#0, SURFACE_WIDTH)
+        _ = random.range(#0, SURFACE_HEIGHT)
+        _ = random.range(#0, SURFACE_WIDTH)
         surface.draw_pixel(_)
 
         reg POINT_ADDR
@@ -72,12 +72,12 @@
         jmp loop
 
     init_x:
-        r0 = rand(#-16, #16)        
+        r0 = random.range(#-16, #16)        
         reg r0
         sto POINT_ADDR
         ret
     init_y:
-        r0 = rand(#-1, #1)                
+        r0 = random.range(#-1, #1)                
         reg r0        
         sto POINT_ADDR
         ret
@@ -131,7 +131,7 @@
     mov_coord:                
         reg r4
         set #1
-        r4 = mul(r4, r2)        
+        r4 = math.mul(r4, r2)        
 
         reg r3
         loa POINT_ADDR

@@ -1,10 +1,7 @@
-use crate::{VirtMach, interrupts::{ SoftInterrupt, SoftInterruptDef }};
+use crate::{VirtMach, interrupts::{ SoftInterrupt }};
 
 #[allow(dead_code)]
-pub static DEF: SoftInterruptDef = SoftInterruptDef {
-    name: "dummy",
-    functions: &[]
-};
+pub const MAP: (&str, &str) = ( "dummy", "");
 
 pub struct Interrupt {}
 

@@ -1,22 +1,20 @@
-use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptDef, SoftInterruptFunction }};
+use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt }};
 
 #[allow(dead_code)]
-pub static DEF: SoftInterruptDef = SoftInterruptDef {
-    name: "math",
-    functions: &[
-        SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  3, name: "not", arguments: 1, returns: 1 },
-        SoftInterruptFunction { no:  4, name: "lsh", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  5, name: "rsh", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  6, name: "mul", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  7, name: "div", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1 },
-        SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1 }
-    ]
-};
+pub const MAP: (&str, &str) = (
+"math",
+"0,  and, 2, 1,
+ 1,  or,  2, 1,
+ 2,  xor, 2, 1,
+ 3,  not, 1, 1,
+ 4,  lsh, 2, 1,
+ 5,  rsh, 2, 1,
+ 6,  mul, 2, 1,
+ 7,  div, 2, 1,
+ 8,  mod, 2, 1,
+ 9,  pow, 2, 1,
+ 10, sqr, 1, 1,
+");
 
 pub struct Interrupt {}
 

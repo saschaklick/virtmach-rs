@@ -2,14 +2,13 @@
 
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{self, Proc, Math, Random};
-use virtmach::{ RuntimeError, interrupts::{SoftInterrupt} };
+use virtmach::interrupts::{ Math, Proc, Random };
+use virtmach::{ RuntimeError, interrupts::{ self, SoftInterrupt } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 mod helpers;
 
 mod int_surface_term;
-use int_surface_term::{IntSurface, DEF};
 
 const W: usize = 64;
 const H: usize = 40;
@@ -19,11 +18,9 @@ static mut BUF: [u8;W * H / 8] = [0b00000000;W * H / 8];
 fn main(){
     match helpers::load_file("examples/programs/starfield.txt") {
         Ok(content) => {
-            let mut interrups = [&interrupts::DummyDef;16];                        
-            interrups[0..interrupts::BASE_INTERRUPTS_DEFS.len()].copy_from_slice(interrupts::BASE_INTERRUPTS_DEFS);                        
-            interrups[interrupts::BASE_INTERRUPTS_DEFS.len()] = &DEF;                                
+                                       
             
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), &interrups) {
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [(String::from(interrupts::SurfaceMap.0), String::from(interrupts::SurfaceMap.1))].to_vec()) {
                 Ok(res) => {                    
                     let program = res.0;
 
@@ -37,7 +34,7 @@ fn main(){
                         .ansi_position(1, 1);
                                                                 
                                 
-                    let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }];                            
+                    let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }];                            
 
                     loop {
                         vm.run(1024, interrupts);

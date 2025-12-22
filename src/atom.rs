@@ -10,7 +10,7 @@ cfg_block! {
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }
 
-        pub trait VAtomMut { fn put_atom(&mut self, a:VMAtom); }
+        pub trait VAtomMut { fn put_atom(&mut self, _a:VMAtom); }
 
         cfg_block! {
             if #[cfg(feature="std")] {
@@ -35,7 +35,7 @@ cfg_block! {
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }
 
-        pub trait VAtomMut { fn put_atom(&mut self, a:VMAtom); }
+        pub trait VAtomMut { fn put_atom(&mut self, _a:VMAtom); }
 
         cfg_block! {
             if #[cfg(feature="std")] {
@@ -60,7 +60,7 @@ cfg_block! {
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }
 
-        pub trait VAtomMut { fn put_atom(&mut self, a:VMAtom); }
+        pub trait VAtomMut { fn put_atom(&mut self, _a:VMAtom); }
 
         cfg_block! {
             if #[cfg(feature="std")] {

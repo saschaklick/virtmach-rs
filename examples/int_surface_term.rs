@@ -1,21 +1,4 @@
-use virtmach::{ VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptDef, SoftInterruptFunction } };
-
-pub static DEF: SoftInterruptDef = SoftInterruptDef {
-    name: "surface",
-    functions: &[        
-        SoftInterruptFunction { no:  0, name: "clear", arguments: 1, returns: 0 },            
-        SoftInterruptFunction { no:  1, name: "draw_pixel", arguments: 3, returns: 0 },       
-        SoftInterruptFunction { no:  2, name: "draw_rect", arguments: 5, returns: 0 },      
-        SoftInterruptFunction { no:  3, name: "fill_rect", arguments: 5, returns: 0 },      
-        SoftInterruptFunction { no:  4, name: "draw_line", arguments: 5, returns: 0 },      
-        SoftInterruptFunction { no:  5, name: "draw_border", arguments: 5, returns: 0 },      
-        SoftInterruptFunction { no:  6, name: "draw_image", arguments: 3, returns: 0 },             
-        SoftInterruptFunction { no: 16, name: "get_size", arguments: 0, returns: 2 },                    
-        SoftInterruptFunction { no: 17, name: "get_image_size", arguments: 1, returns: 2 },                     
-        SoftInterruptFunction { no: 18, name: "get_clip", arguments: 0, returns: 4 },            
-        SoftInterruptFunction { no: 19, name: "set_clip", arguments: 4, returns: 0 },        
-    ]
-};
+use virtmach::{ VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt } };
 
 pub struct IntSurface <'a> {    
     pub w: i32,
