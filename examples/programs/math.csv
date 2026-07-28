@@ -1,0 +1,12 @@
+name,index,arguments,returns,description
+and,0,2,1,"Logical AND"
+or,1,2,1,"Logical OR"
+xor,2,2,1,"Logical XOR"
+not,3,1,1,"Logical NOT"
+lsh,4,2,1,"Bitwise left-shift"
+rsh,5,2,1,"Bitwise right-shift"
+mul,6,2,1,"Multiplication"
+div,7,2,1,"Division"
+mod,8,2,1,"Modulo"
+pow,9,2,1,"Exponentiation"
+sqr,10,1,1,"Squareroot"

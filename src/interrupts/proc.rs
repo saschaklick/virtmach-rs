@@ -1,22 +1,26 @@
 use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
+pub const NAME: &str = "proc";
+
+pub const FUNCTIONS: [SoftInterruptFunction;6] = [
+    SoftInterruptFunction { no:  0, name: "version",   arguments: 0, returns: 3, help: "Nodem version" },
+    SoftInterruptFunction { no:  1, name: "atom_size", arguments: 0, returns: 1, help: "Atom-size in bytes" },
+    SoftInterruptFunction { no:  2, name: "mem_size",  arguments: 0, returns: 1, help: "Memory-size" },
+    SoftInterruptFunction { no:  3, name: "stack_ptr", arguments: 0, returns: 1, help: "Current address of stack pointer" },
+    SoftInterruptFunction { no:  4, name: "prog_cnt",  arguments: 0, returns: 1, help: "Current program pointer" },
+    SoftInterruptFunction { no:  5, name: "stack_ptr", arguments: 0, returns: 1, help: "Current total cycle count" } 
+];
+
 pub struct Interrupt {}
 
 impl SoftInterrupt for Interrupt {
     fn name(&self) -> &str {
-        return "proc";
+        return NAME;
     }
 
     #[cfg(feature = "compile")]
     fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {
-        return &[
-            SoftInterruptFunction { no:  0, name: "version",   arguments: 0, returns: 3, help: "Nodem version" },
-            SoftInterruptFunction { no:  1, name: "atom_size", arguments: 0, returns: 1, help: "Atom-size in bytes" },
-            SoftInterruptFunction { no:  2, name: "mem_size",  arguments: 0, returns: 1, help: "Memory-size" },
-            SoftInterruptFunction { no:  3, name: "stack_ptr", arguments: 0, returns: 1, help: "Current address of stack pointer" },
-            SoftInterruptFunction { no:  4, name: "prog_cnt",  arguments: 0, returns: 1, help: "Current program pointer" },
-            SoftInterruptFunction { no:  5, name: "stack_ptr", arguments: 0, returns: 1, help: "Current total cycle count" }          
-        ];
+        return &FUNCTIONS;
     }
 
     fn call(&mut self, vm: &mut VirtMach) {

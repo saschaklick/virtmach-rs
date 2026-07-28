@@ -7,7 +7,7 @@ use sdl2::{ event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{self, SoftInterrupt, Proc, Math, Random };
+use virtmach::interrupts::{self, SoftInterrupt };
 
 mod helpers;
 
@@ -21,7 +21,12 @@ const SCALE: f32 = 5.0;
 fn main() -> Result<(), String> {        
     match helpers::load_file("examples/programs/primitives.txt") {
         Ok(content) => {              
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [("surface", interrupts::surface::FUNCTIONS.as_slice())].to_vec()) {
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [
+                (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
+                (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
+                (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
+                (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
+            ].to_vec()) {
                 Ok(res) => {                    
                     let program = res.0;
 
@@ -63,7 +68,12 @@ fn main() -> Result<(), String> {
                             }
                         }                        
 
-                        let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }];                            
+                        let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
+                            &mut interrupts::proc::Interrupt {},
+                            &mut interrupts::math::Interrupt {},
+                            &mut interrupts::random::Interrupt {},
+                            &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
+                        ];                            
                         
                         vm.run(1024, interrupts);
 

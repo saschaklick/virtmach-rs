@@ -6,7 +6,7 @@ use bytes::{BufMut, BytesMut};
 use std::{collections::HashMap, vec::Vec, slice, string::String};
 use std::format;
 
-use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ BASE_INTERRUPTS, SoftInterruptFunction }, opcodes::OpCode};
+use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ SoftInterruptFunction }, opcodes::OpCode};
 
 #[derive(Debug)]
 pub enum ListingError <'a> {
@@ -71,18 +71,10 @@ impl VirtMach <'_> {
         } }
     }
 
-    fn prepare_function_map(external_interrupts: Vec::<(&str, &[SoftInterruptFunction])>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
+    fn prepare_function_map(interrupts: Vec::<(&str, &[SoftInterruptFunction])>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
         let mut map: HashMap::<String, (u8, VMAtom, usize, usize)> = HashMap::new();
         
-        for (int_no, interrupt) in BASE_INTERRUPTS.iter().enumerate() {            
-            map.insert(String::from(interrupt.name()), (int_no as u8, 0, 0, 0));
-            for function in interrupt.functions() {
-                map.insert(format!("{}.{}", interrupt.name(), function.name), (int_no as u8, function.no, function.arguments, function.returns));
-            }
-        }
-
-        for (int_no, interrupt) in external_interrupts.iter().enumerate() {            
-            let int_no = int_no + BASE_INTERRUPTS.len();
+        for (int_no, interrupt) in interrupts.iter().enumerate() {                        
             map.insert(String::from(interrupt.0), (int_no as u8, 0, 0, 0));
             for function in interrupt.1 {
                 map.insert(format!("{}.{}", interrupt.0, function.name), (int_no as u8, function.no, function.arguments, function.returns));
@@ -91,9 +83,12 @@ impl VirtMach <'_> {
 
         return map;
     }
+
+    pub fn compile <'a> (name: &'a str, listing: &'a str, functions: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> { 
+        VirtMach::compile_owned(name, listing, VirtMach::prepare_function_map(functions))
+    }                                       
     
-    pub fn compile <'a> (name: &'a str, listing: &'a str, functions: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                        
-        let functions = VirtMach::prepare_function_map(functions); 
+    pub fn compile_owned <'a> (name: &'a str, listing: &'a str, functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                                
 
         let mut dest = BytesMut::new(); 
         
@@ -366,5 +361,23 @@ impl VirtMach <'_> {
                 id: name,
                 data: unsafe { slice::from_raw_parts(buf, dest.len()) }
             }, buf ));
-    }        
+    }   
+
+    
+    pub fn functions(&self, interrupts: Vec::<(&str, &[SoftInterruptFunction])>, writer: &mut dyn core::fmt::Write) -> core::fmt::Result {                                        
+        // for (int_no, interrupt) in BASE_INTERRUPTS.iter().enumerate() {                        
+        //     for function in interrupt.functions() {
+        //         writer.write_fmt(format_args!("{}.{},{},{},{},{},\"{}\"", interrupt.name(), function.name, int_no, function.no, function.arguments, function.returns, function.help))                
+        //     }
+        // }
+
+        for (int_no, interrupt) in interrupts.iter().enumerate() {            
+            //let int_no = int_no + BASE_INTERRUPTS.len();            
+            for function in interrupt.1 {
+                writer.write_fmt(format_args!("{}.{},{},{},{},{},\"{}\"\r\n", interrupt.0, function.name, int_no, function.no, function.arguments, function.returns, function.help)).expect("");                
+            }
+        }
+
+        Ok(())
+    }    
 }

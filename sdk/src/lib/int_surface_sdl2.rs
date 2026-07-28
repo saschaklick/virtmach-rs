@@ -19,7 +19,7 @@ static COLORS: [Color;2] = [Color::RGB(0, 0, 0), Color::RGB(255, 255, 255)];
 
 impl SoftInterrupt for IntSurface <'_> {
     fn name(&self) -> &str {
-        return "surface";
+        return interrupts::surface::NAME;
     }
 
     fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {

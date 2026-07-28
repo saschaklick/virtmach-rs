@@ -1,5 +1,7 @@
 use crate::interrupts::SoftInterruptFunction;
 
+pub const NAME: &str = "surface";
+
 #[allow(dead_code)]
 pub const MAP: (&str, &str) = (
 "surface", "

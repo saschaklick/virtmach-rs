@@ -1,31 +1,18 @@
-use cfg_block::cfg_block;
-use crate::{ VirtMach, VMAtom};
+use crate::{ VirtMach, VMAtom };
 
-mod dummy;
-pub use dummy::Interrupt as Dummy;
-
-mod proc;
-pub use proc::Interrupt as Proc;
-
-mod math;
-pub use math::Interrupt as Math;
-
+pub mod dummy;
+pub mod proc;
+pub mod math;
+#[cfg(feature = "random")]
+pub mod random;   
 pub mod surface;
-pub use surface::MAP as SurfaceMap;
 
-cfg_block! {
-    #[cfg(feature = "random")] {
-        mod random;
-        pub use random::Interrupt as Random;                
-    }
-}
+#[cfg(feature = "compile")]
+extern crate std;
+#[cfg(feature = "compile")]
+use std::string::String;
 
-#[derive(Clone, Copy)]
-pub struct SoftInterruptDef <'a> {
-    pub name: &'a str,
-    pub functions: &'a [SoftInterruptFunction <'a>]
-}
-
+#[cfg(feature = "compile")]
 #[derive(Clone, Copy)]
 pub struct SoftInterruptFunction <'a> {
     pub no: VMAtom,
@@ -35,12 +22,14 @@ pub struct SoftInterruptFunction <'a> {
     pub help: &'a str
 }
 
-pub const BASE_INTERRUPTS: &[&dyn SoftInterrupt] = &[
-    &Proc {},
-    &Math {},
-    #[cfg(feature = "random")]
-    &Random {}
-];
+#[cfg(feature = "compile")]
+pub struct SoftInterruptFunctionOwned {
+    pub no: VMAtom,
+    pub name: String,    
+    pub arguments: usize,
+    pub returns: usize,
+    pub help: String
+}
 
 pub trait SoftInterrupt {        
     fn name(&self) -> &str;    

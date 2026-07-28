@@ -1,13 +1,17 @@
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{ SoftInterrupt, Proc, Math, Random };
+use virtmach::interrupts::{ self, SoftInterrupt };
 
 mod helpers;
 
 fn main(){    
     match helpers::load_file("examples/programs/count.txt") {
         Ok(content) => {            
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), vec![]) {
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [
+                (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
+                (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
+                (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice())
+            ].to_vec()) {
                 Ok(res) => {                    
                     let program = res.0;
 
@@ -15,7 +19,11 @@ fn main(){
 
                     vm.load_program(program);
 
-                    let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut Proc {}, &mut Math {}, &mut Random {}];
+                    let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
+                        &mut interrupts::proc::Interrupt {},
+                        &mut interrupts::math::Interrupt {},
+                        &mut interrupts::random::Interrupt {}
+                    ];
 
                     loop {
                         vm.run(1, interrupts);

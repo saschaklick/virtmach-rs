@@ -1,6 +1,7 @@
-use std::{ ffi::OsStr, io::{ Read, Write }, fs::File, path::Path };
-use simple_logger;
+use std::{ ffi::OsStr, io::{ Read, Write }, fs::File, path::Path, format, collections::HashMap };
+use csv::ReaderBuilder;
 use clap::Parser;
+use simple_logger;
 use virtmach::{ VirtMach, VMAtom, Program, ListingError };
 
 #[derive(Parser, Debug)]
@@ -35,13 +36,30 @@ fn main() -> Result<(), String> {
         }).unwrap()
     }
     
-    let mut external_interrupts = Vec::<(String, String)>::new();
-    for int_name in args.interrupts.unwrap_or(vec![]) {        
-        let filename = format!("{}/{}.csv", Path::new(&args.source).parent().unwrap().to_str().unwrap_or("."), int_name);
+    let mut functions = HashMap::<String, (u8, VMAtom, usize, usize)>::new();    
+
+    for (int_no, int_name) in args.interrupts.unwrap_or(vec![]).iter().enumerate() {        
+        let filename = format!("{}/{}.csv", Path::new(&args.source).parent().unwrap().to_str().unwrap_or("."), int_name);        
         match File::open(&filename) {
-            Ok(mut file) => {
-                let mut content = String::new();
-                external_interrupts.push((int_name, match file.read_to_string(&mut content) { Ok(_) => { content }, _ => { String::new() }  }));
+            Ok(file) => {                
+                let mut reader = ReaderBuilder::new()
+                .double_quote(false)
+                .has_headers(true)
+                .from_reader(file);                
+
+                functions.insert(String::from(int_name), (int_no as u8, 0, 0, 0));                
+                
+                for result in reader.records() {                        
+                    if result.is_ok() {                        
+                        let record = result.unwrap();                        
+                        let name = record.get(0).unwrap();
+                        let fcn_no = str::parse::<VMAtom>(record.get(1).unwrap()).unwrap();
+                        let args = str::parse::<usize>(record.get(2).unwrap()).unwrap();
+                        let rets = str::parse::<usize>(record.get(3).unwrap()).unwrap();                                                
+                        functions.insert(format!("{}.{}", int_name, name), (int_no as u8, fcn_no, args, rets));
+                    }                    
+                }
+
             }
             Err(_) => { eprintln!(); eprintln!("[ERROR] could not load {}", &filename); eprintln!(); return Err(format!("")); }
         }        
@@ -54,8 +72,8 @@ fn main() -> Result<(), String> {
             let name = String::from(Path::new(&args.source).file_stem().unwrap_or(OsStr::new("n/a")).to_str().unwrap_or("n/a"));
             let mut content = String::new();
             match file.read_to_string(&mut content) {
-                Ok(_) => {
-                    match VirtMach::compile(&name, &content, external_interrupts) {
+                Ok(_) => {                    
+                    match VirtMach::compile_owned(&name, &content, functions) {
                         Ok(res) => {                    
                             let program = res.0;
                             if args.verbose > 0 {

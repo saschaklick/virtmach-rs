@@ -1,27 +1,31 @@
 use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
+pub const NAME: &str = "math";
+
+pub const FUNCTIONS: [SoftInterruptFunction;11] = [
+    SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND" },
+    SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR" },
+    SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1, help: "Logical XOR" },
+    SoftInterruptFunction { no:  3, name: "not", arguments: 1, returns: 1, help: "Logical NOT" },
+    SoftInterruptFunction { no:  4, name: "lsh", arguments: 2, returns: 1, help: "Bitwise left-shift" },
+    SoftInterruptFunction { no:  5, name: "rsh", arguments: 2, returns: 1, help: "Bitwise right-shift" },
+    SoftInterruptFunction { no:  6, name: "mul", arguments: 2, returns: 1, help: "Multiplication" },
+    SoftInterruptFunction { no:  7, name: "div", arguments: 2, returns: 1, help: "Division" },
+    SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1, help: "Modulo" },
+    SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1, help: "Exponentiation" },
+    SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1, help: "Squareroot" }
+];
+
 pub struct Interrupt {}
 
 impl SoftInterrupt for Interrupt {
     fn name(&self) -> &str {
-        return "math";
+        return NAME;
     }
 
     #[cfg(feature = "compile")]
     fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {
-        return &[
-            SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND" },
-            SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR" },
-            SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1, help: "Logical XOR" },
-            SoftInterruptFunction { no:  3, name: "not", arguments: 1, returns: 1, help: "Logical NOT" },
-            SoftInterruptFunction { no:  4, name: "lsh", arguments: 2, returns: 1, help: "Bitwise left-shift" },
-            SoftInterruptFunction { no:  5, name: "rsh", arguments: 2, returns: 1, help: "Bitwise right-shift" },
-            SoftInterruptFunction { no:  6, name: "mul", arguments: 2, returns: 1, help: "Multiplication" },
-            SoftInterruptFunction { no:  7, name: "div", arguments: 2, returns: 1, help: "Division" },
-            SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1, help: "Modulo" },
-            SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1, help: "Exponentiation" },
-            SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1, help: "Squareroot" }
-        ];
+        return &FUNCTIONS        
     }
 
     fn call(&mut self, vm: &mut VirtMach) {

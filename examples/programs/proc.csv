@@ -1,0 +1,7 @@
+name,index,arguments,returns,description
+version,0,0,3,"Nodem version"
+atom_size,1,0,1,"Atom-size in bytes"
+mem_size,2,0,1,"Memory-size"
+stack_ptr,3,0,1,"Current address of stack pointer"
+prog_cnt,4,0,1,"Current program pointer"
+stack_ptr,5,0,1,"Current total cycle count"

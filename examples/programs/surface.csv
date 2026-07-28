@@ -1,12 +1,12 @@
- no, name,           arg, res, help
-  0, clear,          1,   0,
-  1, draw_pixel,     3,   0,
-  2, draw_rect,      5,   0,
-  3, fill_rect,      5,   0,
-  4, draw_line,      5,   0,
-  5, draw_border,    5,   0,
-  6, draw_image,     3,   0,
- 16, get_size,       0,   2,
- 17, get_image_size, 1,   2,
- 18, get_clip,       0,   4,
- 19, set_clip,       4,   0,
+name,index,arguments,returns,description
+clear,0,1,0,"Clear surface (color)->()"
+draw_pixel,1,3,0,"Draw pixel (x,y,color)->()"
+draw_rect,2,5,0,"Draw rectagle (x,y,w,h,color)->()"
+fill_rect,3,5,0,"Fill rectagle (x,y,w,h,color)->()"
+draw_line,4,5,0,"Draw line (x1,y1,x2,y2,color)->()"
+draw_border,5,5,0,"Draw border (x,y,w,h,border_idx)->()"
+draw_image,6,3,0,"Draw image (x,y,image_idx)->()"
+get_size,16,0,2,"Get surface size ()->(w,h)"
+get_image_size,17,1,2,"Get image size (image_idx)->(w,h)"
+get_clip,18,0,4,"Get surface clipping area ()->(x,y,w,h)"
+set_clip,19,4,0,"Set surface clipping area (x,y,w,h)->()"
