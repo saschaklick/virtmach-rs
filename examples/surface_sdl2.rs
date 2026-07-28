@@ -1,9 +1,7 @@
 #![allow(static_mut_refs)]
 
 extern crate sdl2;
-use sdl2::VideoSubsystem;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::{ event::Event, keyboard::Keycode, pixels::Color };
+use sdl2::{ VideoSubsystem, event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
 use virtmach::VirtMach;
