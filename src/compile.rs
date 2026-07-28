@@ -3,10 +3,10 @@ extern crate std;
 
 use alloc::alloc::{alloc_zeroed, Layout};
 use bytes::{BufMut, BytesMut};
-use std::{collections::HashMap, vec::Vec, slice, string::String, format };
-use csv;
+use std::{collections::HashMap, vec::Vec, slice, string::String};
+use std::format;
 
-use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, opcodes::OpCode, interrupts::BASE_INTERRUPT_MAPS};
+use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ BASE_INTERRUPTS, SoftInterruptFunction }, opcodes::OpCode};
 
 #[derive(Debug)]
 pub enum ListingError <'a> {
@@ -71,45 +71,30 @@ impl VirtMach <'_> {
         } }
     }
 
-    fn parse_function_map(external_interrupts: Vec::<(String, String)>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
+    fn prepare_function_map(external_interrupts: Vec::<(&str, &[SoftInterruptFunction])>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
         let mut map: HashMap::<String, (u8, VMAtom, usize, usize)> = HashMap::new();
-
-        fn add(map: &mut HashMap::<String, (u8, VMAtom, usize, usize)>, int_no: u8, int_name: &str, int_csv: &str) {
-            map.insert(String::from(int_name), (int_no as u8, 0, 0, 0));
-            
-            let mut rdr = csv::ReaderBuilder::new()
-                .has_headers(false)
-                .from_reader(int_csv.as_bytes());
-            for result in rdr.records() {            
-                if result.is_ok() {
-                    let record = result.unwrap();                
-                    if record.len() == 5 {
-                        let func_no = record[0].trim().parse::<VMAtom>().unwrap();
-                        let func_name = &record[1];
-                        let arg_cnt = record[2].trim().parse::<usize>().unwrap();
-                        let res_cnt = record[3].trim().parse::<usize>().unwrap();
-                        
-                        let func = (int_no as u8, func_no, arg_cnt, res_cnt);                    
-                        map.insert(format!("{}.{}", int_name, func_name.trim()), func);
-                    }        
-                }
+        
+        for (int_no, interrupt) in BASE_INTERRUPTS.iter().enumerate() {            
+            map.insert(String::from(interrupt.name()), (int_no as u8, 0, 0, 0));
+            for function in interrupt.functions() {
+                map.insert(format!("{}.{}", interrupt.name(), function.name), (int_no as u8, function.no, function.arguments, function.returns));
             }
         }
-        
-        for (int_no, (int_name, int_csv)) in BASE_INTERRUPT_MAPS.iter().enumerate() {
-            add(&mut map, int_no as u8, *int_name, *int_csv);
+
+        for (int_no, interrupt) in external_interrupts.iter().enumerate() {            
+            let int_no = int_no + BASE_INTERRUPTS.len();
+            map.insert(String::from(interrupt.0), (int_no as u8, 0, 0, 0));
+            for function in interrupt.1 {
+                map.insert(format!("{}.{}", interrupt.0, function.name), (int_no as u8, function.no, function.arguments, function.returns));
+            }
         }
 
-        for (ext_no, (int_name, int_csv)) in external_interrupts.iter().enumerate() {
-            add(&mut map, (ext_no + BASE_INTERRUPT_MAPS.len()) as u8, int_name.as_str(), int_csv.as_str());
-        }    
-    
         return map;
     }
     
-    pub fn compile <'a> (name: &'a str, listing: &'a str, function_definitions: Vec::<(String, String)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {        
-        let functions = VirtMach::parse_function_map(function_definitions);        
-        
+    pub fn compile <'a> (name: &'a str, listing: &'a str, functions: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                        
+        let functions = VirtMach::prepare_function_map(functions); 
+
         let mut dest = BytesMut::new(); 
         
         dest.put_u8(ATOM_ID);               
@@ -163,7 +148,7 @@ impl VirtMach <'_> {
         for (i, mut line) in listing.lines().enumerate() {                 
             let line_no = i + 1;
             line = line.trim();            
-            line = line.split(";").next().unwrap_or("").trim();
+            line = line.split(";").next().unwrap_or("").trim();            
 
             if line.starts_with("#") {
                 continue;
@@ -187,14 +172,14 @@ impl VirtMach <'_> {
 
                 let ignore_inputs = inputs.len() == 1 && inputs[0] == Argument::Ignore();
                 let ignore_outputs = outputs.len() == 1 && outputs[0] == Argument::Ignore();
-                                
+                
                 let mut function: Option<(u8, VMAtom)> = None;
                 if functions.contains_key(function_str) {
                     let func = functions.get(function_str).unwrap();
                     if !ignore_inputs && func.2 != inputs.len() { std::println!("{:?}", inputs); return Err(ListingError::MalformedFunction(line_no, "wrong number of arguments")); }
                     if !ignore_outputs && func.3 != outputs.len() { return Err(ListingError::MalformedFunction(line_no, "wrong number of return values")); }
                     function = Some((func.0, func.1));
-                }                
+                }                                
 
                 if function.is_none() { return Err(ListingError::UnknownFunction(line_no, function_str)); }
                 if !ignore_outputs {

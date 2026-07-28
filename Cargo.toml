@@ -13,7 +13,7 @@ path = "src/lib.rs"
 default = ["full"]
 std = ["bytes"]
 random = ["nostd_structs"]
-compile = ["full", "std"]
+compile = ["full", "std", "csv"]
 full = ["random"]
 i8 = []
 i16 = []
@@ -24,9 +24,10 @@ cfg_block = "0.2.0"
 log = { version = "0.4.27"  }
 bytes = { version = "1.10.1", optional = true }
 nostd_structs = { version = "0.5.0", optional = true }
-csv = "1.4.0"
+csv = { version = "1.4.0", optional = true }
 
 [dev-dependencies]
 bitmap_writer = { version = "0.1.2", features = ["std"] }
-sdl2 = "0.38.0"
+sdl2 = { version = "0.38.0" }
+
 

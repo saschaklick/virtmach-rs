@@ -1,9 +1,4 @@
-use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt }};
-
-#[allow(dead_code)]
-pub const MAP: (&str, &str) = (
-"random","0, range, 2, 1,
-");
+use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 use nostd_structs::algos::rand;
 
@@ -13,7 +8,14 @@ pub struct Interrupt {}
 
 impl SoftInterrupt for Interrupt {
     fn name(&self) -> &str {
-        return "math";
+        return "random";
+    }
+
+    #[cfg(feature = "compile")]
+    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {
+        return &[
+            SoftInterruptFunction { no:  0, name: "range", arguments: 2, returns: 1, help: "Generate random value in provided value range" }
+        ];
     }
     
     fn call(&mut self, vm: &mut VirtMach) {

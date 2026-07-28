@@ -1,6 +1,8 @@
 #![allow(static_mut_refs)]
 
 extern crate sdl2;
+use sdl2::VideoSubsystem;
+use sdl2::pixels::PixelFormatEnum;
 use sdl2::{ event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
@@ -9,21 +11,22 @@ use virtmach::interrupts::{self, SoftInterrupt, Proc, Math, Random };
 
 mod helpers;
 
+#[path = "../sdk/src/lib/int_surface_sdl2.rs"]
 mod int_surface_sdl2;
 
 const W: usize = 64;
 const H: usize = 40;
 const SCALE: f32 = 5.0;
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), String> {        
     match helpers::load_file("examples/programs/primitives.txt") {
-        Ok(content) => {            
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [(String::from(interrupts::SurfaceMap.0), String::from(interrupts::SurfaceMap.1))].to_vec()) {
+        Ok(content) => {              
+            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [("surface", interrupts::surface::FUNCTIONS.as_slice())].to_vec()) {
                 Ok(res) => {                    
                     let program = res.0;
 
                     let mut vm = VirtMach::new();
-
+                    
                     vm.load_program(program);                                                          
 
                     let sdl_context = sdl2::init()?;
@@ -36,7 +39,8 @@ fn main() -> Result<(), String> {
                         .build()
                         .map_err(|e| e.to_string())?;
 
-                    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+                    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;                                
+
                     canvas.set_scale(SCALE, SCALE)?;
 
                     canvas.set_draw_color(Color::RGB(0, 0, 0));

@@ -1,0 +1,6 @@
+[build]
+target = "avr-attiny85.json"
+rustflags = ["-C", "target-cpu=attiny85"]
+
+[unstable]
+build-std = ["core"]

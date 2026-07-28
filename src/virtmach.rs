@@ -9,7 +9,7 @@ pub use crate::atom::{ATOM_ID, VMAtom, VMAddr, VAtom};
 pub use crate::errors::RuntimeError as RuntimeError;
 pub use crate::program::Program as Program;
 pub use crate::writer::Writer as Writer;
-use crate::interrupts;
+use crate::interrupts::SoftInterrupt;
 
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -28,11 +28,11 @@ pub struct VirtMach <'a> {
     pub error: RuntimeError,    
     pub(crate) processor: Processor,
     pub state: Runtime,
-    halt_on_break: bool
+    halt_on_break: bool    
 }
 
 impl <'a> VirtMach <'_> {
-    pub fn new() -> Self {        
+    pub fn new() -> Self {                
         let res =  Self {
             registers: [0 as VMAtom;REG_MAX],
             memory: [0 as VMAtom;MEM_SIZE],            
@@ -41,7 +41,7 @@ impl <'a> VirtMach <'_> {
             cycle_cnt: 0,
             processor: Processor::default(),
             state: Runtime::Ini,
-            halt_on_break: false
+            halt_on_break: false,            
         };    
         
         return res;  
@@ -93,7 +93,7 @@ impl <'a> VirtMach <'_> {
         }
     }
 
-    pub fn step (&mut self, interrupts: &mut [&'_ mut dyn interrupts::SoftInterrupt]) {
+    pub fn step (&mut self, interrupts: &mut [&'_ mut dyn SoftInterrupt]) {        
         if self.state != Runtime::Run {
             return;
         }
@@ -179,7 +179,7 @@ impl <'a> VirtMach <'_> {
             x if x == (OpCode::JPS as u8) => { if self.processor.sign { jmpchk(self, val, false); } }                      
             x if x == (OpCode::INT as u8) => {
                 let int_no = reg as usize;                
-                if int_no < interrupts.len() {
+                if int_no < interrupts.len() {               
                     interrupts[int_no].call(self);                    
                 }else{                        
                     self.error = RuntimeError::UnhandledInterrupt;
@@ -217,7 +217,7 @@ impl <'a> VirtMach <'_> {
         self.memory.fill(0);
     }
 
-    pub fn run (&mut self, max_ops: usize, interrupts: &mut [& mut dyn interrupts::SoftInterrupt]) {
+    pub fn run (&mut self, max_ops: usize, interrupts: &mut [& mut dyn SoftInterrupt]) {
         let mut op_cnt = 0;
 
         if self.state == Runtime::Hlt {

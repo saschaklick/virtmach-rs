@@ -10,13 +10,13 @@ pub use proc::Interrupt as Proc;
 mod math;
 pub use math::Interrupt as Math;
 
-mod surface;
+pub mod surface;
 pub use surface::MAP as SurfaceMap;
 
 cfg_block! {
     #[cfg(feature = "random")] {
         mod random;
-        pub use random::Interrupt as Random;        
+        pub use random::Interrupt as Random;                
     }
 }
 
@@ -35,15 +35,18 @@ pub struct SoftInterruptFunction <'a> {
     pub help: &'a str
 }
 
-pub const BASE_INTERRUPT_MAPS: &[(&str, &str)] = &[
-    proc::MAP,
-    math::MAP,
+pub const BASE_INTERRUPTS: &[&dyn SoftInterrupt] = &[
+    &Proc {},
+    &Math {},
     #[cfg(feature = "random")]
-    random::MAP
+    &Random {}
 ];
 
-pub trait SoftInterrupt {    
+pub trait SoftInterrupt {        
     fn name(&self) -> &str;    
+
+    #[cfg(feature = "compile")]
+    fn functions(&self) -> &'static [SoftInterruptFunction<'static>];
     
     fn call(&mut self, vm: &mut VirtMach);
 }

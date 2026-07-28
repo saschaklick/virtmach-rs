@@ -6,11 +6,15 @@ edition = "2024"
 [[bin]]
 name = "compiler"
 
+[[bin]]
+name = "runtime"
+
 [features]
 
 [dependencies]
+bitmap_writer = { version = "0.1.2", features = ["std"] }
+bytes = "1.11.0"
 clap = { version = "4.5.53", features = ["derive"] }
-csv = "1.4.0"
 log = "0.4.29"
 simple_logger = "5.1.0"
 virtmach = { path = "..", features = ["compile"] }

@@ -4,7 +4,7 @@ use virtmach::interrupts::{ SoftInterrupt, Proc, Math, Random };
 
 mod helpers;
 
-fn main(){
+fn main(){    
     match helpers::load_file("examples/programs/count.txt") {
         Ok(content) => {            
             match VirtMach::compile(content.0.as_str(), content.1.as_str(), vec![]) {

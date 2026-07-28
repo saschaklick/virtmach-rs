@@ -1,44 +1,47 @@
-use virtmach::{ VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt } };
+use virtmach::{ RuntimeError, VMAtom, VirtMach, interrupts::{ self, SoftInterrupt, SoftInterruptFunction } };
+
+extern crate sdl2;
+use sdl2::{ video::Window, pixels::Color, render::Canvas, rect::{ Rect, Point } };
 
 pub struct IntSurface <'a> {    
-    pub w: i32,
-    pub h: i32,
-    pub clip: [i32;4],
-    pub bitmap: &'a mut [u8]
+    pub canvas: &'a mut Canvas<Window>,
+    pub clip: [i32;4]
 }
 
 impl IntSurface <'_> {
     fn draw_pixel(&mut self, x: i32, y: i32, color: u8) {
-        if x >= self.clip[0] && x < self.w && x < self.clip[2] && y >= self.clip[1] && y < self.h as i32 && y < self.clip[3] {
-            let pixel = y * self.w + x;
-            match color {
-                0 => self.bitmap[(pixel / 8) as usize] &= !(1 << (7 - (x % 8))),
-                _ => self.bitmap[(pixel / 8) as usize] |= 1 << (7 - (x % 8))
-            }        
-        }
+        self.canvas.set_draw_color(COLORS[if color == 0 { 0 } else { 1 }]);
+        let _ = self.canvas.draw_point(Point::from((x as i32, y as i32)));
     }
 }
+
+static COLORS: [Color;2] = [Color::RGB(0, 0, 0), Color::RGB(255, 255, 255)];
 
 impl SoftInterrupt for IntSurface <'_> {
     fn name(&self) -> &str {
         return "surface";
     }
+
+    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {
+        return &interrupts::surface::FUNCTIONS;
+    }
     
     fn call(&mut self, vm: &mut VirtMach) {                
+        self.canvas.set_clip_rect(Rect::from((self.clip[0], self.clip[1], self.clip[2] as u32, self.clip[3] as u32)));
+        
         let op = vm.stack_pop();        
         
         match op {
             0 => {
                 let color = vm.stack_pop() as u8;  
-                self.bitmap.fill(if color == 0 { 0x00 } else { 0xff });
+                self.canvas.set_draw_color(COLORS[if color == 0 { 0 } else { 1 }]);
+                self.canvas.clear();
             }     
             1 | 6 => {
                 let x = vm.stack_pop();
                 let y = vm.stack_pop();                
                 match op {
-                    1 => {
-                        let color = vm.stack_pop();                
-                        self.draw_pixel(x as i32, y as i32, color as u8);
+                    1 => { self.draw_pixel(x as i32, y as i32, vm.stack_pop() as u8);                        
                     }
                     _ => {
                         let _image = vm.stack_pop();
@@ -52,12 +55,10 @@ impl SoftInterrupt for IntSurface <'_> {
                 let w = vm.stack_pop();
                 let h = vm.stack_pop();
                 let color = vm.stack_pop();                                         
+                self.canvas.set_draw_color(COLORS[if color == 0 { 0 } else { 1 }]);
                 match op {
-                    2 => {
-                        for y in y..y + h { self.draw_pixel(x as i32, y as i32, color as u8); self.draw_pixel((x + w - 1) as i32, y as i32, color as u8); }
-                        for x in x..x + w { self.draw_pixel(x as i32, y as i32, color as u8); self.draw_pixel(x as i32, (y + h - 1) as i32, color as u8); }
-                    }
-                    3 => for y in y..y + h { for x in x..x + w { self.draw_pixel(x as i32, y as i32, color as u8); } },
+                    2 => { let _ = self.canvas.draw_rect(Rect::from((x as i32, y as i32, w as u32, h as u32))); }
+                    3 => { let _ = self.canvas.fill_rect(Rect::from((x as i32, y as i32, w as u32, h as u32))); }
                     5 => {                        
                         for by in y..y + h {
                             let c = if by != y && by != y + h - 1 && ((by - y) % 2 == 0 || by < y + 2 || by >= y + h - 3) { 1 } else { 0 };
@@ -78,32 +79,11 @@ impl SoftInterrupt for IntSurface <'_> {
                 let x_1 = vm.stack_pop();
                 let y_1 = vm.stack_pop();
                 let color = vm.stack_pop();
-
-                let dx = (x_1 - x_0).abs();
-                let sx = if x_0 < x_1 { 1 } else { -1 };
-                let dy = -(y_1 - y_0).abs();
-                let sy = if y_0 < y_1 { 1 } else { -1 };
-                let mut error = dx + dy;
-                let mut x = x_0;
-                let mut y = y_0;
-            
-                loop {
-                    self.draw_pixel(x as i32, y as i32, color as u8);            
-                    let e2 = 2 * error;
-                    if e2 >= dy {
-                        if x == x_1 { break; }
-                        error = error + dy;
-                        x = x + sx;
-                    }
-                    if e2 <= dx {
-                        if y == y_1 { break; }
-                        error = error + dx;
-                        y = y + sy;
-                    }
-                }
+                self.canvas.set_draw_color(COLORS[if color == 0 { 0 } else { 1 }]);
+                let _ = self.canvas.draw_line(Point::from((x_0 as i32, y_0 as i32)), Point::from((x_1 as i32, y_1 as i32)));
             }    
             16 => {
-                [self.w, self.h].iter().for_each(|v| { vm.stack_push(*v as VMAtom); });                
+                [self.canvas.viewport().w, self.canvas.viewport().h].iter().for_each(|v| { vm.stack_push(*v as VMAtom); });                
             }
             17 => {
                 let _image = vm.stack_pop();
@@ -118,4 +98,5 @@ impl SoftInterrupt for IntSurface <'_> {
             _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }
         }        
     }
+
 }

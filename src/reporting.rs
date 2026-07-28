@@ -21,6 +21,26 @@ impl VirtMach <'_> {
 }
 
 impl VirtMach <'_> {
+    pub fn inspect<W: Write>(&self, mut writer: W) -> core::fmt::Result {
+        writer.write_str("state,error,prg,pc,sp,reg,zero,carry,sign\r\n").expect("");
+        writer.write_fmt(format_args!(
+            "{:?},{:?},\"{}\",{},{},{},{},{},{},{}\r\n",            
+            self.state, self.error,
+            self.program.id,
+            self.cycle_cnt,
+            self.processor.prog_cnt, self.processor.stack_ptr, self.processor.act_reg, self.processor.zero as u8, self.processor.carry as u8, self.processor.sign as u8
+        )).expect("");
+        Ok(())
+    }
+
+    pub fn disassemble<W: Write>(&self, mut writer: W) -> core::fmt::Result {
+        for i in 0..self.program.data.len() {
+            VirtMach::decompile(&self.program, i, &mut writer);
+            writer.write_str("\r\n").expect("");
+        }
+        Ok(())
+    }
+
     pub fn write_status<W: Write>(&self, mut writer: W) {                
         let _ = writer.write_fmt(format_args!("{:12}: {:?}-{}-{:05}-{:05}", self.program.id, self.state, self.error.clone() as u8, self.processor.prog_cnt, self.processor.stack_ptr));
     }

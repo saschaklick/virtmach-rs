@@ -1,5 +1,5 @@
-use std::{ffi::OsStr, fs::File, io::Read, path::Path};
-use virtmach::{VirtMach, VMAtom, Program};
+use std::{ ffi::OsStr, fs::File, io::Read, path::Path };
+use virtmach::{ VirtMach, VMAtom, Program };
 
 #[allow(dead_code)]
 pub fn disassemble(program: Program) {
@@ -24,7 +24,7 @@ pub fn disassemble(program: Program) {
 pub fn load_file(filename: &str) -> Result<(String, String), std::io::Error> {
     match File::open(filename) {
         Ok(mut file) => {
-            let name = String::from(Path::new(filename).file_stem().unwrap_or(OsStr::new("-na-")).to_str().unwrap_or("-na-"));
+            let name = String::from(Path::new(filename).file_stem().unwrap_or(OsStr::new("n/a")).to_str().unwrap_or("n/a"));
             let mut content = String::new();
             match file.read_to_string(&mut content) {
                 Ok(_) => Ok((name, content)),                
@@ -33,4 +33,7 @@ pub fn load_file(filename: &str) -> Result<(String, String), std::io::Error> {
         }
         Err(err) => Err(err)
     }
+}
+
+pub fn main() {
 }

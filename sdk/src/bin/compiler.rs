@@ -1,5 +1,4 @@
 use std::{ ffi::OsStr, io::{ Read, Write }, fs::File, path::Path };
-use log;
 use simple_logger;
 use clap::Parser;
 use virtmach::{ VirtMach, VMAtom, Program, ListingError };
@@ -23,27 +22,28 @@ struct Args {
     verbose: u32    
 }
 
-fn main() -> Result<(), ()> {
+fn main() -> Result<(), String> {
     let args = Args::parse();
 
     match args.verbose {
         0 => {}
         _ => simple_logger::init_with_level(match args.verbose {
-            1 => log::Level::Info,
-            2 => log::Level::Debug,
+            1 => log::Level::Error,
+            2 => log::Level::Info,
+            3 => log::Level::Debug,
             _ => log::Level::Trace
         }).unwrap()
     }
     
     let mut external_interrupts = Vec::<(String, String)>::new();
     for int_name in args.interrupts.unwrap_or(vec![]) {        
-        let filename = format!("{}.csv", int_name);
+        let filename = format!("{}/{}.csv", Path::new(&args.source).parent().unwrap().to_str().unwrap_or("."), int_name);
         match File::open(&filename) {
             Ok(mut file) => {
                 let mut content = String::new();
                 external_interrupts.push((int_name, match file.read_to_string(&mut content) { Ok(_) => { content }, _ => { String::new() }  }));
             }
-            Err(_) => { eprintln!(); eprintln!("[ERROR] could not load {}", &filename); eprintln!(); }
+            Err(_) => { eprintln!(); eprintln!("[ERROR] could not load {}", &filename); eprintln!(); return Err(format!("")); }
         }        
     }  
 
@@ -62,9 +62,12 @@ fn main() -> Result<(), ()> {
                                 disassemble(&program);   
                             }
 
-                            let mut file = File::create(out_file);
+                            let file = File::create(&out_file);
                             if file.is_ok() {
-                                file.unwrap().write(&program.data);
+                                match file.unwrap().write(&program.data) {
+                                    Ok(_) => { println!("[OK] wrote binary to {}", &out_file); }
+                                    Err(err) => { eprintln!("failed to write binary file {}: {}", &out_file, err); return Err(format!("")); }
+                                }
                             }
 
                             Ok(())                                                      
@@ -88,14 +91,14 @@ fn main() -> Result<(), ()> {
                                 let line = line.unwrap();
                                 eprintln!(); eprintln!("\tline #{}: {:?}", line, content.lines().nth(line - 1).unwrap_or("")); eprintln!();
                             }
-                            Err(())
+                            Err(format!(""))
                         }
                     }                                                                       
                 }
-                Err(err) => { if args.verbose > 0 { eprintln!(); eprintln!("[ERROR] could not read from file: {}", err); eprintln!(); } Err(()) }
+                Err(err) => { if args.verbose > 0 { eprintln!(); eprintln!("[ERROR] could not read from file: {}", err); eprintln!(); } Err(format!("")) }
             }
         }
-        Err(err) => { if args.verbose > 0 { eprintln!(); eprintln!("[ERROR] could not open file: {}", err); eprintln!(); } Err(()) }
+        Err(err) => { if args.verbose > 0 { eprintln!(); eprintln!("[ERROR] could not open file: {}", err); eprintln!(); } Err(format!("")) }
     }
 }
 
