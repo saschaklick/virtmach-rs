@@ -3,17 +3,17 @@ use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFu
 pub const NAME: &str = "math";
 
 pub const FUNCTIONS: [SoftInterruptFunction;11] = [
-    SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND" },
-    SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR" },
-    SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1, help: "Logical XOR" },
-    SoftInterruptFunction { no:  3, name: "not", arguments: 1, returns: 1, help: "Logical NOT" },
-    SoftInterruptFunction { no:  4, name: "lsh", arguments: 2, returns: 1, help: "Bitwise left-shift" },
-    SoftInterruptFunction { no:  5, name: "rsh", arguments: 2, returns: 1, help: "Bitwise right-shift" },
-    SoftInterruptFunction { no:  6, name: "mul", arguments: 2, returns: 1, help: "Multiplication" },
-    SoftInterruptFunction { no:  7, name: "div", arguments: 2, returns: 1, help: "Division" },
-    SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1, help: "Modulo" },
-    SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1, help: "Exponentiation" },
-    SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1, help: "Squareroot" }
+    SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND (num0,num1)->(res)" },
+    SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR (num0,num1)->(res)" },
+    SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1, help: "Logical XOR (num0,num1)->(res)" },
+    SoftInterruptFunction { no:  3, name: "not", arguments: 1, returns: 1, help: "Logical NOT (num)->(res)" },
+    SoftInterruptFunction { no:  4, name: "lsh", arguments: 2, returns: 1, help: "Bitwise left-shift (num,bits_to_shift)->(res)" },
+    SoftInterruptFunction { no:  5, name: "rsh", arguments: 2, returns: 1, help: "Bitwise right-shift (num,bits_to_shift)->(res)" },
+    SoftInterruptFunction { no:  6, name: "mul", arguments: 2, returns: 1, help: "Multiplication (fac0,fac1)->(res)" },
+    SoftInterruptFunction { no:  7, name: "div", arguments: 2, returns: 1, help: "Division (dividend,divisor)->(res)" },
+    SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1, help: "Modulo (dividend,divisor)->(res)" },
+    SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1, help: "Exponentiation (base, exponent)->(res)" },
+    SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1, help: "Squareroot (num)->(res)" }
 ];
 
 pub struct Interrupt {}

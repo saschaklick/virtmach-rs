@@ -3,12 +3,12 @@ use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInt
 pub const NAME: &str = "proc";
 
 pub const FUNCTIONS: [SoftInterruptFunction;6] = [
-    SoftInterruptFunction { no:  0, name: "version",   arguments: 0, returns: 3, help: "Nodem version" },
-    SoftInterruptFunction { no:  1, name: "atom_size", arguments: 0, returns: 1, help: "Atom-size in bytes" },
-    SoftInterruptFunction { no:  2, name: "mem_size",  arguments: 0, returns: 1, help: "Memory-size" },
-    SoftInterruptFunction { no:  3, name: "stack_ptr", arguments: 0, returns: 1, help: "Current address of stack pointer" },
-    SoftInterruptFunction { no:  4, name: "prog_cnt",  arguments: 0, returns: 1, help: "Current program pointer" },
-    SoftInterruptFunction { no:  5, name: "stack_ptr", arguments: 0, returns: 1, help: "Current total cycle count" } 
+    SoftInterruptFunction { no:  0, name: "version",   arguments: 0, returns: 3, help: "Nodem version ()->(major,minor,revision)" },
+    SoftInterruptFunction { no:  1, name: "atom_size", arguments: 0, returns: 1, help: "Atom-size in bytes ()->(size)" },
+    SoftInterruptFunction { no:  2, name: "mem_size",  arguments: 0, returns: 1, help: "Memory-size ()->(size)" },
+    SoftInterruptFunction { no:  3, name: "stack_ptr", arguments: 0, returns: 1, help: "Current address of stack pointer ()->(sp)" },
+    SoftInterruptFunction { no:  4, name: "prog_cnt",  arguments: 0, returns: 1, help: "Current program pointer ()->(pc)" },
+    SoftInterruptFunction { no:  5, name: "stack_ptr", arguments: 0, returns: 1, help: "Current total cycle count ()->(cc)" } 
 ];
 
 pub struct Interrupt {}

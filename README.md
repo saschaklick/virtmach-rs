@@ -150,3 +150,7 @@ The instructions are all three characters long and followed by at most one argum
     neg
     jps result_was_negative_after_neg
 ```
+
+## Calling convention
+
+While it is up to each implementation of a software interrupt handler how it receives and sends back atoms to the processor, the suggested calling convention - which all internal interrupts adhere to - expect the correct number arguments per function to be push'ed onto the stack. The interrupt function will pop the values of the stack and push the result atom(s) onto the stack for the processor to retrieve.

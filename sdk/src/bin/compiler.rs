@@ -37,6 +37,7 @@ fn main() -> Result<(), String> {
     }
     
     let mut functions = HashMap::<String, (u8, VMAtom, usize, usize)>::new();    
+    let mut interrupts = vec![];
 
     for (int_no, int_name) in args.interrupts.unwrap_or(vec![]).iter().enumerate() {        
         let filename = format!("{}/{}.csv", Path::new(&args.source).parent().unwrap().to_str().unwrap_or("."), int_name);        
@@ -47,7 +48,7 @@ fn main() -> Result<(), String> {
                 .has_headers(true)
                 .from_reader(file);                
 
-                functions.insert(String::from(int_name), (int_no as u8, 0, 0, 0));                
+                interrupts.push(String::from(int_name));
                 
                 for result in reader.records() {                        
                     if result.is_ok() {                        
@@ -73,7 +74,7 @@ fn main() -> Result<(), String> {
             let mut content = String::new();
             match file.read_to_string(&mut content) {
                 Ok(_) => {                    
-                    match VirtMach::compile_owned(&name, &content, functions) {
+                    match VirtMach::compile_owned(&name, &content, &interrupts, functions) {
                         Ok(res) => {                    
                             let program = res.0;
                             if args.verbose > 0 {

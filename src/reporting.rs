@@ -1,5 +1,5 @@
 use core::fmt::Write;
-use crate::{RuntimeError, VirtMach, Writer, MEM_SIZE, REG_MAX};
+use crate::{RuntimeError, VirtMach, Writer, VMAtom, MEM_SIZE, REG_MAX};
 
 impl VirtMach <'_> {
     pub fn log(&self) {
@@ -22,20 +22,23 @@ impl VirtMach <'_> {
 
 impl VirtMach <'_> {
     pub fn inspect<W: Write>(&self, mut writer: W) -> core::fmt::Result {
-        writer.write_str("state,error,prg,pc,sp,reg,zero,carry,sign\r\n").expect("");
+        writer.write_str("state,error,prg,pc,sp,reg,zero,carry,sign,atom\r\n").expect("");
         writer.write_fmt(format_args!(
-            "{:?},{:?},\"{}\",{},{},{},{},{},{},{}\r\n",            
+            "{:?},{:?},\"{}\",{},{},{},{},{},{},{},{}\r\n",            
             self.state, self.error,
             self.program.id,
             self.cycle_cnt,
-            self.processor.prog_cnt, self.processor.stack_ptr, self.processor.act_reg, self.processor.zero as u8, self.processor.carry as u8, self.processor.sign as u8
+            self.processor.prog_cnt, self.processor.stack_ptr, self.processor.act_reg, self.processor.zero as u8, self.processor.carry as u8, self.processor.sign as u8,
+            core::mem::size_of::<VMAtom>() as u8
         )).expect("");
         Ok(())
     }
 
     pub fn disassemble<W: Write>(&self, mut writer: W) -> core::fmt::Result {
-        for i in 0..self.program.data.len() {
-            VirtMach::decompile(&self.program, i, &mut writer);
+        let mut i = 0;
+        while i < self.program.data.len() {        
+            writer.write_fmt(format_args!("{} ", i)).expect("");
+            i = VirtMach::decompile(&self.program, i, &mut writer);
             writer.write_str("\r\n").expect("");
         }
         Ok(())

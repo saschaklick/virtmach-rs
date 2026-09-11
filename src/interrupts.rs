@@ -12,7 +12,6 @@ extern crate std;
 #[cfg(feature = "compile")]
 use std::string::String;
 
-#[cfg(feature = "compile")]
 #[derive(Clone, Copy)]
 pub struct SoftInterruptFunction <'a> {
     pub no: VMAtom,
