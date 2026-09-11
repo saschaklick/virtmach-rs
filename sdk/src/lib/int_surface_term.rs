@@ -21,7 +21,7 @@ impl IntSurface <'_> {
 
 impl SoftInterrupt for IntSurface <'_> {
     fn name(&self) -> &str {
-        return "surface";
+        return surface::NAME;
     }
 
     fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {

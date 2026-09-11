@@ -28,7 +28,7 @@ pub struct VirtMach <'a> {
     pub error: RuntimeError,    
     pub(crate) processor: Processor,
     pub state: Runtime,
-    halt_on_break: bool    
+    halt_on_brk: bool    
 }
 
 impl <'a> VirtMach <'_> {
@@ -41,7 +41,7 @@ impl <'a> VirtMach <'_> {
             cycle_cnt: 0,
             processor: Processor::default(),
             state: Runtime::Ini,
-            halt_on_break: false,            
+            halt_on_brk: false,            
         };    
         
         return res;  
@@ -192,7 +192,7 @@ impl <'a> VirtMach <'_> {
                     x if x == (OpCode::CLR as u8) => { self.processor.zero = false; self.processor.carry = false; self.processor.carry = false;  }                                      
                     x if x == (OpCode::INV as u8) => { self.processor.zero = !self.processor.zero; self.processor.carry = !self.processor.carry; self.processor.sign = !self.processor.sign; }                                      
                     x if x == (OpCode::NEG as u8) => { let res = self.registers[self.processor.act_reg].neg(); self.registers[self.processor.act_reg] = res; self.processor.sign = res < 0; }                                      
-                    x if x == (OpCode::BRK as u8) => { if self.halt_on_break == true { self.state = Runtime::Hlt; } }
+                    x if x == (OpCode::BRK as u8) => { if self.halt_on_brk == true { self.state = Runtime::Hlt; } else if inst_pos == 0 { self.halt_on_brk = true; } }
                     x if x == (OpCode::HLT as u8) => { self.state = Runtime::Hlt; }
                     x if x == (OpCode::END as u8) => { self.state = Runtime::Stp; }
                     _ => { self.error = RuntimeError::IllegalInstruction; }
@@ -214,7 +214,13 @@ impl <'a> VirtMach <'_> {
         self.state = Runtime::Hlt;
         self.error = RuntimeError::NoError;        
         self.cycle_cnt = 0;
+        self.registers.fill(0);
         self.memory.fill(0);
+    }
+
+    pub fn unload(&mut self) {
+        self.program = Program::EMPTY;
+        self.reset();        
     }
 
     pub fn run (&mut self, max_ops: usize, interrupts: &mut [& mut dyn SoftInterrupt]) {

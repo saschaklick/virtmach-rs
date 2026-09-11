@@ -85,11 +85,11 @@ impl VirtMach <'_> {
     }
 
     pub fn compile <'a> (name: &'a str, listing: &'a str, functions: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> { 
-        VirtMach::compile_owned(name, listing, VirtMach::prepare_function_map(functions))
+        let interrupts = functions.clone().into_iter().map(|a| { String::from(a.0) }).collect::<Vec<String>>();        
+        VirtMach::compile_owned(name, listing, &interrupts, VirtMach::prepare_function_map(functions))
     }                                       
     
-    pub fn compile_owned <'a> (name: &'a str, listing: &'a str, functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                                
-
+    pub fn compile_owned <'a> (name: &'a str, listing: &'a str, interrupts: &[String], functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                                        
         let mut dest = BytesMut::new(); 
         
         dest.put_u8(ATOM_ID);               
@@ -127,7 +127,7 @@ impl VirtMach <'_> {
                         "req" => {
                             if def.len() == 2 {
                                 let int_name = def[1].trim();                                 
-                                if !functions.contains_key(int_name) { return Err(ListingError::MalformedDefine(line_no, "required interrupt not found")); }
+                                if !interrupts.contains(&String::from(int_name)) { return Err(ListingError::MalformedDefine(line_no, "required interrupt not found")); }
                             }else{
                                 return Err(ListingError::MalformedDefine(line_no, "malformed req"));
                             }  
@@ -311,12 +311,18 @@ impl VirtMach <'_> {
                     } else {
                         match op_res {
                             OpCode::INT => {
-                                if functions.contains_key(label) {
+                                if interrupts.contains(&String::from(label)) {
                                     dest.put_u8(op_u8 | (functions.get(label).unwrap().0 << 4) as u8);                                    
                                     len += 1;
                                 }else{
-                                    return Err(ListingError::UnknownInterrupt(line_no, label));
-                                }
+                                    let int_no: u8 = str::parse(label).unwrap_or(255);                                    
+                                    if (int_no as usize) < interrupts.len() {
+                                        dest.put_u8(op_u8 | (int_no << 4) as u8);                                    
+                                        len += 1;
+                                    }else{
+                                        return Err(ListingError::UnknownInterrupt(line_no, label));
+                                    }
+                                }                                                               
                             }
                             _ => {
                                 dest.put_u8(op_u8 | 0xf0);
@@ -365,14 +371,8 @@ impl VirtMach <'_> {
 
     
     pub fn functions(&self, interrupts: Vec::<(&str, &[SoftInterruptFunction])>, writer: &mut dyn core::fmt::Write) -> core::fmt::Result {                                        
-        // for (int_no, interrupt) in BASE_INTERRUPTS.iter().enumerate() {                        
-        //     for function in interrupt.functions() {
-        //         writer.write_fmt(format_args!("{}.{},{},{},{},{},\"{}\"", interrupt.name(), function.name, int_no, function.no, function.arguments, function.returns, function.help))                
-        //     }
-        // }
-
-        for (int_no, interrupt) in interrupts.iter().enumerate() {            
-            //let int_no = int_no + BASE_INTERRUPTS.len();            
+        writer.write_str("name,int_no,func_no,arguments,returns,description\r\n").expect("");
+        for (int_no, interrupt) in interrupts.iter().enumerate() {                                                
             for function in interrupt.1 {
                 writer.write_fmt(format_args!("{}.{},{},{},{},{},\"{}\"\r\n", interrupt.0, function.name, int_no, function.no, function.arguments, function.returns, function.help)).expect("");                
             }

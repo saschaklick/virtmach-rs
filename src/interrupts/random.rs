@@ -3,7 +3,7 @@ use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInt
 pub const NAME: &str = "random";
 
 pub const FUNCTIONS: [SoftInterruptFunction;1] = [
-    SoftInterruptFunction { no:  0, name: "range", arguments: 2, returns: 1, help: "Generate random value in provided value range" }
+    SoftInterruptFunction { no:  0, name: "range", arguments: 2, returns: 1, help: "Generate random value in provided value range (start,end)->(res)" }
 ];
 
 use nostd_structs::algos::rand;
