@@ -21,9 +21,9 @@ pub use virtmach::*;
 pub use processor::*;
 
 cfg_block!{
-    #[cfg(feature="std")] {        
-        mod compile; 
-        
-        pub use compile::*; 
+    #[cfg(feature="compile")] {
+        mod compile;
+
+        pub use compile::*;
     }
 }
