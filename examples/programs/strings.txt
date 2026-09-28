@@ -1,0 +1,17 @@
+; Strings
+    #req math    
+    #req surface    
+
+    #db "Hello, World!", 0x10, 0x00
+    #db "Welcome!", 0x10, 0x00
+
+    #def STR_1          #0 ; string index 0
+    #def STR_2          #1 ; string index 1
+    #def SURFACE_WIDTH  r6 ; surface width
+    #def SURFACE_HEIGHT r7 ; surface width
+             
+        SURFACE_WIDTH, SURFACE_HEIGHT = surface.get_size()                        
+    
+    start:
+        hlt
+        jmp start

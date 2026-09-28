@@ -5,7 +5,7 @@ use sdl2::{ VideoSubsystem, event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{self, SoftInterrupt };
+use virtmach::interrupts::{self, SoftInterrupt, SoftInterruptFunction };
 
 mod helpers;
 
@@ -17,77 +17,79 @@ const H: usize = 40;
 const SCALE: f32 = 5.0;
 
 fn main() -> Result<(), String> {        
-    match helpers::load_file("examples/programs/primitives.txt") {
-        Ok(content) => {              
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [
-                (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-                (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-                (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
-                (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
-            ].to_vec()) {
-                Ok(res) => {                    
-                    let program = res.0;
+    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
+        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
+        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
+        (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
+        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
+        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
+    ].to_vec();
 
-                    let mut vm = VirtMach::new();
-                    
-                    vm.load_program(program);                                                          
-
-                    let sdl_context = sdl2::init()?;
-                    let video_subsystem = sdl_context.video()?;
-
-                    let window = video_subsystem
-                        .window("virtmach-rs example: surface_sdl2", (W as f32 * SCALE) as u32, (H as f32 * SCALE) as u32)
-                        .position_centered()
-                        .opengl()
-                        .build()
-                        .map_err(|e| e.to_string())?;
-
-                    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;                                
-
-                    canvas.set_scale(SCALE, SCALE)?;
-
-                    canvas.set_draw_color(Color::RGB(0, 0, 0));
-                    canvas.clear();
-                    canvas.present();                    
+    let Some(source) = helpers::load_source("examples/programs/primitives.txt", &tables) else { return Ok(()) };
     
-                    let mut event_pump = sdl_context.event_pump()?;
+    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+        Ok(res) => {                    
+            let program = res.0;
 
-                    print!("\x1b[2J");
+            let mut vm = VirtMach::new();
+            
+            vm.load_program(program);                                                          
 
-                    'running: loop {
-                        for event in event_pump.poll_iter() {
-                            match event {
-                                Event::Quit { .. }
-                                | Event::KeyDown {
-                                    keycode: Some(Keycode::Escape),
-                                    ..
-                                } => break 'running,
-                                _ => {}
-                            }
-                        }                        
+            let sdl_context = sdl2::init()?;
+            let video_subsystem = sdl_context.video()?;
 
-                        let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                            &mut interrupts::proc::Interrupt {},
-                            &mut interrupts::math::Interrupt {},
-                            &mut interrupts::random::Interrupt {},
-                            &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
-                        ];                            
-                        
-                        vm.run(1024, interrupts);
+            let window = video_subsystem
+                .window("virtmach-rs example: surface_sdl2", (W as f32 * SCALE) as u32, (H as f32 * SCALE) as u32)
+                .position_centered()
+                .opengl()
+                .build()
+                .map_err(|e| e.to_string())?;
 
-                        canvas.present();        
+            let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;                                
 
-                        let mut dashboard = String::new();
-                        vm.write_dashboard(&mut dashboard, 0b111, 6);
-                        print!("\x1b[H{}", dashboard);
-                        
-                        thread::sleep(time::Duration::from_millis(1000 / 15))
-                    }                    
-                }
-                Err(err) => println!("compile error: {:?}", err)
-            }            
-        } 
-        Err(err) => println!("file read error: {:?}", err)               
+            canvas.set_scale(SCALE, SCALE)?;
+
+            canvas.set_draw_color(Color::RGB(0, 0, 0));
+            canvas.clear();
+            canvas.present();                    
+
+            let mut event_pump = sdl_context.event_pump()?;
+
+            print!("\x1b[2J");
+
+            'running: loop {
+                for event in event_pump.poll_iter() {
+                    match event {
+                        Event::Quit { .. }
+                        | Event::KeyDown {
+                            keycode: Some(Keycode::Escape),
+                            ..
+                        } => break 'running,
+                        _ => {}
+                    }
+                }                        
+
+                let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
+                    &mut interrupts::proc::Interrupt {},
+                    &mut interrupts::math::Interrupt {},
+                    &mut interrupts::string::Interrupt {},
+                    &mut interrupts::random::Interrupt {},
+                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
+                ];                            
+                
+                vm.run(1024, interrupts);
+
+                canvas.present();        
+
+                let mut dashboard = String::new();
+                vm.write_dashboard(&mut dashboard, 0b111, 6);
+                print!("\x1b[H{}", dashboard);
+                for line in helpers::variable_values(&vm, &source.variables) { println!("{}\x1b[K", line); }
+                
+                thread::sleep(time::Duration::from_millis(1000 / 15))
+            }                    
+        }
+        Err(err) => println!("compile error: {:?}", err)
     }
     Ok(())
 }

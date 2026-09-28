@@ -1,0 +1,150 @@
+// Grammar of the virtmach BASIC dialect, see basic.rs, pest resolves this file relative to src/
+
+WHITESPACE = _{ " " | "\t" }
+
+program = { SOI ~ (line ~ NEWLINE)* ~ line? ~ EOI }
+line    = { line_no? ~ label_def? ~ (comment | statements ~ (":"? ~ comment)?)? }
+label_def = @{ ident ~ ":" }
+line_no = @{ ASCII_DIGIT+ }
+comment = @{ (^"REM" ~ !ident_char | "'") ~ (!NEWLINE ~ ANY)* }
+
+statements = _{ statement ~ (":" ~ statement)* }
+statement  = _{ block_if | elseif_stmt | else_stmt | end_if | select_stmt | case_stmt | end_select
+               | for_stmt | next_stmt | while_stmt | wend_stmt | do_stmt | loop_stmt
+               | sub_def | function_def | end_sub | end_function | shared_stmt | def_fn | req_stmt | simple_stmt }
+
+// statements allowed inside a single-line IF
+simple_stmts = { simple_stmt ~ (":" ~ simple_stmt)* }
+simple_stmt  = _{ if_stmt | goto_stmt | gosub_stmt | on_stmt | return_stmt | exit_stmt | end_stmt | halt_stmt
+                | stop_stmt | dim_stmt | swap_stmt | call_sub | multi_assign | call_stmt | let_stmt | sub_call }
+
+block_if     = { kw_if ~ expr ~ kw_then ~ &(NEWLINE | EOI | comment) }
+if_stmt      = { kw_if ~ expr ~ kw_then ~ branch ~ (kw_else ~ branch)? }
+branch       = { line_ref | simple_stmts }
+elseif_stmt  = { kw_elseif ~ expr ~ kw_then ~ &(NEWLINE | EOI | comment) }
+else_stmt    = { kw_else }
+end_if       = { kw_endif | kw_end ~ kw_if }
+for_stmt     = { kw_for ~ ident ~ "=" ~ expr ~ kw_to ~ expr ~ (kw_step ~ expr)? }
+next_stmt    = { kw_next ~ ident? }
+while_stmt   = { kw_while ~ expr }
+wend_stmt    = { kw_wend }
+do_stmt      = { kw_do ~ do_cond? }
+loop_stmt    = { kw_loop ~ do_cond? }
+do_cond      = { cond_kind ~ expr }
+cond_kind    = { kw_while | kw_until }
+select_stmt  = { kw_select ~ kw_case ~ expr }
+case_stmt    = { kw_case ~ (case_else | case_item ~ ("," ~ case_item)*) }
+case_else    = { kw_else }
+case_item    = { case_is | case_range | expr }
+case_is      = { kw_is ~ cmp_op ~ expr }
+case_range   = { expr ~ kw_to ~ expr }
+cmp_op       = { "<>" | "<=" | ">=" | "<" | ">" | "=" }
+end_select   = { kw_end ~ kw_select }
+goto_stmt    = { kw_goto ~ target }
+gosub_stmt   = { kw_gosub ~ target }
+on_stmt      = { kw_on ~ expr ~ on_kind ~ target ~ ("," ~ target)* }
+on_kind      = { kw_goto | kw_gosub }
+target       = { line_ref | ident }
+exit_stmt    = { kw_exit ~ exit_kind }
+exit_kind    = { kw_for | kw_while | kw_do | kw_sub | kw_function }
+stop_stmt    = { kw_stop }
+swap_stmt    = { kw_swap ~ lvalue ~ "," ~ lvalue }
+sub_def      = { kw_sub ~ ident ~ ("(" ~ params? ~ ")")? }
+function_def = { kw_function ~ ident ~ ("(" ~ params? ~ ")")? }
+params       = { ident ~ ("," ~ ident)* }
+end_sub      = { kw_end ~ kw_sub }
+end_function = { kw_end ~ kw_function }
+shared_stmt  = { kw_shared ~ ident ~ ("," ~ ident)* }
+req_stmt     = { kw_req ~ int_name ~ ("," ~ int_name)* }
+int_name     = @{ ident_raw }
+def_fn       = { kw_def ~ ident ~ ("(" ~ params? ~ ")")? ~ "=" ~ expr }
+call_sub     = { kw_call ~ ident ~ ("(" ~ args? ~ ")")? }
+sub_call     = { ident ~ (args | "(" ~ ")")? }
+return_stmt  = { kw_return }
+end_stmt     = { kw_end }
+halt_stmt    = { kw_halt }
+dim_stmt     = { kw_dim ~ dim_item ~ ("," ~ dim_item)* }
+dim_item     = { ident ~ "(" ~ number ~ ")" }
+multi_assign = { lvalue ~ ("," ~ lvalue)+ ~ "=" ~ int_call }
+call_stmt    = { int_call }
+let_stmt     = { kw_let? ~ lvalue ~ "=" ~ expr }
+lvalue       = { ident ~ ("(" ~ expr ~ ")")? }
+line_ref     = @{ ASCII_DIGIT+ }
+
+// expressions, precedence is resolved by the Pratt parser in basic.rs
+expr    = { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
+prefix  = _{ op_neg | op_not }
+infix   = _{ op_add | op_sub | op_mul | op_div | op_mod | op_pow | op_shl | op_shr
+           | op_ne | op_le | op_ge | op_lt | op_gt | op_eq | op_and | op_or | op_xor }
+primary = _{ number | string | int_call | call | ident | "(" ~ expr ~ ")" }
+
+int_call = { int_func ~ "(" ~ args? ~ ")" }
+int_func = @{ ident_raw ~ "." ~ ident_raw }
+call     = { ident ~ "(" ~ args? ~ ")" }
+args     = { expr ~ ("," ~ expr)* }
+number   = @{ ^"0x" ~ ASCII_HEX_DIGIT+ | ASCII_DIGIT+ }
+string   = @{ "\"" ~ ("\"\"" | !("\"" | NEWLINE) ~ ANY)* ~ "\"" }
+
+op_neg = { "-" }
+op_add = { "+" }
+op_sub = { "-" }
+op_mul = { "*" }
+op_div = { "/" }
+op_pow = { "^" }
+op_ne  = { "<>" }
+op_le  = { "<=" }
+op_shl = { "<<" }
+op_lt  = { "<" }
+op_ge  = { ">=" }
+op_shr = { ">>" }
+op_gt  = { ">" }
+op_eq  = { "=" }
+op_mod = @{ ^"MOD" ~ !ident_char }
+op_and = @{ ^"AND" ~ !ident_char }
+op_or  = @{ ^"OR"  ~ !ident_char }
+op_xor = @{ ^"XOR" ~ !ident_char }
+op_not = @{ ^"NOT" ~ !ident_char }
+
+ident      = @{ !keyword ~ ident_raw ~ "$"? }
+ident_raw  = _{ ASCII_ALPHA ~ ident_char* }
+ident_char = _{ ASCII_ALPHANUMERIC | "_" }
+keyword    = _{ (^"ENDIF" | ^"END" | ^"IF" | ^"THEN" | ^"ELSEIF" | ^"ELSE" | ^"FOR" | ^"TO" | ^"STEP" | ^"NEXT"
+               | ^"WHILE" | ^"WEND" | ^"GOTO" | ^"GOSUB" | ^"RETURN" | ^"HALT" | ^"DIM" | ^"LET"
+               | ^"REM" | ^"MOD" | ^"AND" | ^"OR" | ^"XOR" | ^"NOT" | ^"SELECT" | ^"CASE" | ^"IS"
+               | ^"DO" | ^"LOOP" | ^"UNTIL" | ^"ON" | ^"EXIT" | ^"STOP" | ^"SWAP" | ^"SUB" | ^"FUNCTION"
+               | ^"CALL" | ^"SHARED" | ^"DEF" | ^"REQ") ~ !ident_char }
+
+kw_if     = @{ ^"IF" ~ !ident_char }
+kw_then   = @{ ^"THEN" ~ !ident_char }
+kw_else   = @{ ^"ELSE" ~ !ident_char }
+kw_endif  = @{ ^"ENDIF" ~ !ident_char }
+kw_end    = @{ ^"END" ~ !ident_char }
+kw_for    = @{ ^"FOR" ~ !ident_char }
+kw_to     = @{ ^"TO" ~ !ident_char }
+kw_step   = @{ ^"STEP" ~ !ident_char }
+kw_next   = @{ ^"NEXT" ~ !ident_char }
+kw_while  = @{ ^"WHILE" ~ !ident_char }
+kw_wend   = @{ ^"WEND" ~ !ident_char }
+kw_goto   = @{ ^"GOTO" ~ !ident_char }
+kw_gosub  = @{ ^"GOSUB" ~ !ident_char }
+kw_return = @{ ^"RETURN" ~ !ident_char }
+kw_halt   = @{ ^"HALT" ~ !ident_char }
+kw_dim    = @{ ^"DIM" ~ !ident_char }
+kw_let    = @{ ^"LET" ~ !ident_char }
+kw_elseif = @{ ^"ELSEIF" ~ !ident_char }
+kw_select = @{ ^"SELECT" ~ !ident_char }
+kw_case   = @{ ^"CASE" ~ !ident_char }
+kw_is     = @{ ^"IS" ~ !ident_char }
+kw_do     = @{ ^"DO" ~ !ident_char }
+kw_loop   = @{ ^"LOOP" ~ !ident_char }
+kw_until  = @{ ^"UNTIL" ~ !ident_char }
+kw_on     = @{ ^"ON" ~ !ident_char }
+kw_exit   = @{ ^"EXIT" ~ !ident_char }
+kw_stop   = @{ ^"STOP" ~ !ident_char }
+kw_swap   = @{ ^"SWAP" ~ !ident_char }
+kw_sub    = @{ ^"SUB" ~ !ident_char }
+kw_function = @{ ^"FUNCTION" ~ !ident_char }
+kw_call   = @{ ^"CALL" ~ !ident_char }
+kw_shared = @{ ^"SHARED" ~ !ident_char }
+kw_def    = @{ ^"DEF" ~ !ident_char }
+kw_req    = @{ ^"REQ" ~ !ident_char }

@@ -1,46 +1,47 @@
-use std::{thread, time};
+use std::{env, thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{ self, SoftInterrupt };
+use virtmach::interrupts::{ self, SoftInterrupt, SoftInterruptFunction };
 
 mod helpers;
 
-fn main(){    
-    match helpers::load_file("examples/programs/count.txt") {
-        Ok(content) => {            
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [
-                (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-                (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-                (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice())
-            ].to_vec()) {
-                Ok(res) => {                    
-                    let program = res.0;
+fn main(){
+    let delay = env::args().nth(2).and_then(|ms| ms.parse::<u64>().ok()).unwrap_or(250);
 
-                    let mut vm = VirtMach::new();          
+    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
+        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
+        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
+        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice())
+    ].to_vec();
 
-                    vm.load_program(program);
+    let Some(source) = helpers::load_source("examples/programs/count.txt", &tables) else { return };
 
-                    let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                        &mut interrupts::proc::Interrupt {},
-                        &mut interrupts::math::Interrupt {},
-                        &mut interrupts::random::Interrupt {}
-                    ];
+    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+        Ok(res) => {
+            let program = res.0;
 
-                    loop {
-                        vm.run(1, interrupts);
-                        
-                        let mut dashboard = String::new();
-                        vm.write_dashboard(&mut dashboard, 0b111, 5);
+            let mut vm = VirtMach::new();
 
-                        print!("\x1b[H\x1b[J");          
-                        println!("{}", dashboard);
+            vm.load_program(program);
 
-                        thread::sleep(time::Duration::from_millis(250))
-                    }
-                    
-                }
-                Err(err) => println!("compile error: {:?}", err)
+            let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
+                &mut interrupts::proc::Interrupt {},
+                &mut interrupts::math::Interrupt {},
+                &mut interrupts::random::Interrupt {}
+            ];
+
+            loop {
+                vm.run(1, interrupts);
+
+                let mut dashboard = String::new();
+                vm.write_dashboard(&mut dashboard, 0b111, 5);
+
+                print!("\x1b[H\x1b[J");
+                println!("{}", dashboard);
+                for line in helpers::variable_values(&vm, &source.variables) { println!("{}", line); }
+
+                thread::sleep(time::Duration::from_millis(delay))
             }
         }
-        Err(err) =>  println!("file read error: {:?}", err)                
+        Err(err) => println!("compile error: {:?}", err)
     }
 }

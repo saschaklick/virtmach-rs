@@ -13,6 +13,8 @@ pub enum RuntimeError {
     HeapUnderflow,
     HeapCrash,
     UnhandledInterrupt,
-    UnimplementedInterruptFunc,
-    InterruptError
+    UnimplementedInterruptFunc,    
+    InterruptError,
+    DictionaryOutOfBound,
+    AllocFailed
 }

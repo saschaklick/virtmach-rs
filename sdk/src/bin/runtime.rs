@@ -2,7 +2,7 @@ use std::{thread, time, fs::File, io::Read };
 use simple_logger;
 use clap::Parser;
 use bytes::{ BytesMut };
-use virtmach::{ VirtMach, Program, interrupts::{ SoftInterrupt, Proc, Math, Random } };
+use virtmach::{ VirtMach, Program, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 #[derive(Parser, Debug)]
@@ -40,8 +40,8 @@ fn main() -> Result<(), String> {
     let surface_str = args.surface.unwrap_or(String::new());
     let surface = surface_str.as_str();
 
-    let filename = args.bin.as_str();    
-    
+    let filename = args.bin.as_str();  
+
     match File::open(filename) {
         Ok(mut file) => {
             let mut bin = vec![];
@@ -55,15 +55,19 @@ fn main() -> Result<(), String> {
 
                     vm.load_program(program);
 
-                    let mut buf = &mut [0u8;1024];
+                    let mut buf = [0u8;1024];
 
-                    let interrupts: &mut [&mut dyn SoftInterrupt] = match surface {
-                        "term" => &mut [ &mut Proc {}, &mut Math {}, &mut Random {}, &mut int_surface_term::IntSurface { w: 64, h: 40, clip: [0, 0, 63, 39], bitmap: buf } ],
-                        _ => &mut [ &mut Proc {}, &mut Math {}, &mut Random {}]
-                    };                                             
+                    let (mut proc, mut math, mut string_int, mut random) = (Proc {}, Math {}, StringInt {}, Random {});
+                    let mut term = int_surface_term::IntSurface { w: 64, h: 40, clip: [0, 0, 63, 39], bitmap: &mut buf };
 
                     loop {
-                        vm.run(1, interrupts);
+                        {
+                            let interrupts: &mut [&mut dyn SoftInterrupt] = match surface {
+                                "term" => &mut [ &mut proc, &mut math, &mut string_int, &mut random, &mut term ],
+                                _ => &mut [ &mut proc, &mut math, &mut random ]
+                            };
+                            vm.run(1024, interrupts);
+                        }
                         
                         if verbose >= 1 {
                             let mut dashboard = String::new();
@@ -71,7 +75,7 @@ fn main() -> Result<(), String> {
 
                             match surface {
                                 "term" => {
-                                    let bitmap = Bitmap::new(64, 40, buf);
+                                    let bitmap = Bitmap::new(64, 40, &mut *term.bitmap);
                                     print!("\x1b[J");                                            
                                     let mut w = Writer::new();
                                     w.frame(Frame::UnicodeDoubleUFrame)

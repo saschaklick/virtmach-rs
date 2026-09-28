@@ -1,22 +1,27 @@
-use virtmach::{ VirtMach, interrupts };
+use virtmach::{ VirtMach, interrupts::{ self, SoftInterruptFunction } };
 
 mod helpers;
 
 fn main(){
-    match helpers::load_file("examples/programs/count.txt") {       
-        Ok(content) => {
-            match VirtMach::compile(content.0.as_str(), content.1.as_str(), [
-                (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-                (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-                (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),                
-            ].to_vec()) {
-                Ok(res) => {                    
-                    let program = res.0;
-                    helpers::disassemble(program);                                                         
-                }
-                Err(err) => println!("compile error: {:?}", err)
+    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
+        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
+        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),        
+        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
+        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
+    ].to_vec();
+
+    let Some(source) = helpers::load_source("examples/programs/count.txt", &tables) else { return };
+
+    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+        Ok(res) => {
+            let program = res.0;
+            if !source.variables.is_empty() {
+                println!();
+                println!("Variables:");
+                for line in helpers::variable_locations(&source.variables) { println!("{}", line); }
             }
+            helpers::disassemble(program);
         }
-        Err(err) =>  println!("file read error: {:?}", err)                                                    
+        Err(err) => println!("compile error: {:?}", err)
     }
 }

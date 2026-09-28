@@ -106,6 +106,8 @@ impl SoftInterrupt for IntSurface <'_> {
                     }
                 }
             }    
+            10 => { vm.stack_pop(); vm.stack_pop(); vm.stack_pop(); vm.stack_pop(); }
+            15 => { vm.stack_pop(); vm.stack_pop(); vm.stack_push(0); vm.stack_push(0); }
             16 => {
                 [self.w, self.h].iter().for_each(|v| { vm.stack_push(*v as VMAtom); });                
             }

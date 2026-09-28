@@ -4,7 +4,8 @@ extern crate std;
 use alloc::alloc::{alloc_zeroed, Layout};
 use bytes::{BufMut, BytesMut};
 use std::{collections::HashMap, vec::Vec, slice, string::String};
-use std::format;
+use std::{format};
+use num_literal_traits::NumLiteralTrait;
 
 use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ SoftInterruptFunction }, opcodes::OpCode};
 
@@ -15,21 +16,23 @@ pub enum ListingError <'a> {
     IllegalArgument(usize, &'a str),
     IllegalRegister(usize, &'a str),    
     IllegalInterrupt(usize, &'a str),    
-    MalformedDefine(usize, &'a str),    
+    MalformedDefine(usize, &'a str),   
+    MalformedLiteral(usize, &'a str),   
     IllegalDefineValue(usize, &'a str),    
     UnknownLabel(usize, &'a str),    
     UnknownInterrupt(usize, &'a str),
     UnknownFunction(usize, &'a str),
-    MalformedFunction(usize, &'a str)    
+    MalformedFunction(usize, &'a str),
+    /// BASIC compile error: source line (0 if it has none) and message
+    #[cfg(feature = "basic")]
+    Basic(usize, String)
 }
 
-#[derive(Copy, Clone)]
 struct Label <'a> {
     name: &'a str,
     address: usize,
 }
 
-#[derive(Copy, Clone)]
 struct Jump <'a> {
     label: &'a str,
     address: usize,
@@ -89,19 +92,30 @@ impl VirtMach <'_> {
         VirtMach::compile_owned(name, listing, &interrupts, VirtMach::prepare_function_map(functions))
     }                                       
     
-    pub fn compile_owned <'a> (name: &'a str, listing: &'a str, interrupts: &[String], functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {                                                        
-        let mut dest = BytesMut::new(); 
+    /// Assembles a listing. With the basic feature, a source whose first non-empty line is a REM statement
+    /// is compiled from BASIC into a listing first, see crate::basic.
+    pub fn compile_owned <'a> (name: &'a str, listing: &'a str, interrupts: &[String], functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {
+        #[cfg(feature = "basic")]
+        if crate::basic::is_basic(listing) {
+            let output = crate::basic::compile(name, listing, interrupts, &functions).map_err(|e| ListingError::Basic(e.line, e.msg))?;
+            return VirtMach::assemble(name, &output.listing, interrupts, functions)
+                .map_err(|e| ListingError::Basic(0, format!("generated listing failed to assemble: {:?}", e)));
+        }
+        VirtMach::assemble(name, listing, interrupts, functions)
+    }
+
+    fn assemble <'a, 'b> (name: &'a str, listing: &'b str, interrupts: &[String], functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'b>> {
+        let mut data = BytesMut::new();         
         
-        dest.put_u8(ATOM_ID);               
+        data.put_u8(ATOM_ID);               
 
         let mut len = 0;
 
-        let mut labels = [Label { name: "", address: 0 };128];
-        let mut labels_i = 0usize;
-        let mut jumps = [Jump { label: "", address: 0, line_no: 0 };128];
-        let mut jumps_i = 0usize;
+        let mut labels: Vec<Label> = Vec::new();
+        let mut jumps: Vec<Jump> = Vec::new();
                   
-        let mut defines = HashMap::<&str, &str>::new();         
+        let mut defines = HashMap::<&str, &str>::new();
+        let mut dbs = Vec::new();
                 
         for (i, mut line) in listing.lines().enumerate() {   
             let line_no = i + 1;
@@ -132,6 +146,40 @@ impl VirtMach <'_> {
                                 return Err(ListingError::MalformedDefine(line_no, "malformed req"));
                             }  
                         }
+                        "db" => {                            
+                            let mut db = BytesMut::new();
+                            let mut chunks = line[line.find(" ").unwrap_or(3)..].trim();
+                            loop {
+                                let char = chunks.chars().collect::<Vec<_>>()[0];                                
+                                if char == ' ' {
+                                    chunks = &chunks[1..];                                    
+                                    continue;
+                                }
+                                if char == '"' {
+                                    chunks = &chunks[1..];
+                                    let string = &chunks[0..chunks.find('"').unwrap_or(chunks.len())];
+                                    for byte in string.bytes() {
+                                        db.put_u8(byte);
+                                    }
+                                    chunks = &chunks[string.len() + 1..];                                    
+                                }else
+                                if char == ',' {                                    
+                                    chunks = &chunks[1..];
+                                    let literal = &chunks[0..chunks.find(',').unwrap_or(chunks.len())];
+                                    let value = u8::parse_literal(literal);
+                                    if value.is_ok() {
+                                        db.put_u8(value.unwrap());
+                                    } else {
+                                        return Err(ListingError::MalformedLiteral(line_no, "illegal literal"));
+                                    }
+                                    chunks = &chunks[literal.len()..];                             
+                                }
+                                if chunks.trim().is_empty() {
+                                    break;
+                                }                                
+                            }                            
+                            dbs.push(db);
+                        }
                         _ => { return Err(ListingError::MalformedDefine(line_no, "illegal keyword")); }                   
                     }                                    
                 }else{
@@ -139,6 +187,19 @@ impl VirtMach <'_> {
                 }                
             }            
         }
+
+        let mut db_pos = 0u16;
+        data.put_u8(dbs.len() as u8);        
+        for db in &dbs {
+            db_pos += db.len() as u16;
+            data.put_u16_ne(db_pos);
+        }        
+        for db in &dbs {
+            for byte in db {
+               data.put_u8(*byte);
+            }
+        }
+        let db_end = data.len();          
         
         for (i, mut line) in listing.lines().enumerate() {                 
             let line_no = i + 1;
@@ -150,9 +211,7 @@ impl VirtMach <'_> {
             }else
             if line.ends_with(":") {
                 let label = line.split(":").next().unwrap_or("").trim();
-                labels[labels_i].name = label;
-                labels[labels_i].address = len;  
-                labels_i += 1;                             
+                labels.push(Label { name: label, address: len });
             }else
             if line.contains("(") && line.ends_with(")") {
                 let mut head = line[..line.find("(").unwrap()].split("=");
@@ -201,12 +260,12 @@ impl VirtMach <'_> {
                     for input in &inputs {
                             match input {
                                 Argument::Register(reg) => {
-                                    dest.put_u8(OpCode::PSH as u8 | (*reg << 4));
+                                    data.put_u8(OpCode::PSH as u8 | (*reg << 4));
                                     len += 1;
                                 }
                                 Argument::Atom(val) => {
-                                    dest.put_u8(OpCode::PSH as u8 | (0x0f << 4));
-                                    dest.put_atom(*val);
+                                    data.put_u8(OpCode::PSH as u8 | (0x0f << 4));
+                                    data.put_atom(*val);
                                     len += 1 + size_of::<VMAtom>();
                                 }
                                 _ => {}
@@ -214,10 +273,10 @@ impl VirtMach <'_> {
                     }
                 }
 
-                dest.put_u8(OpCode::PSH as u8 | (0x0f << 4));
-                dest.put_atom(function.unwrap().1 as VMAtom);
+                data.put_u8(OpCode::PSH as u8 | (0x0f << 4));
+                data.put_atom(function.unwrap().1 as VMAtom);
                 len += 1 + size_of::<VMAtom>();
-                dest.put_u8(OpCode::INT as u8 | (function.unwrap().0 << 4));
+                data.put_u8(OpCode::INT as u8 | (function.unwrap().0 << 4));
                 len += 1;
 
                 if !ignore_outputs {
@@ -225,12 +284,12 @@ impl VirtMach <'_> {
                     for output in &outputs {
                             match output {
                                 Argument::Register(reg) => {
-                                    dest.put_u8(OpCode::POP as u8 | (*reg << 4));
+                                    data.put_u8(OpCode::POP as u8 | (*reg << 4));
                                     len += 1;
                                 }
                                 Argument::Atom(val) => {
-                                    dest.put_u8(OpCode::POP as u8 | (0x0f << 4));
-                                    dest.put_atom(*val);
+                                    data.put_u8(OpCode::POP as u8 | (0x0f << 4));
+                                    data.put_atom(*val);
                                     len += 1 + size_of::<VMAtom>();
                                 }
                                 _ => {}
@@ -250,7 +309,7 @@ impl VirtMach <'_> {
                 let argument = VirtMach::parse_argument(arg, &defines);
 
                 let mut args: u8 = 0b011;
-                let mut range = VMAtom::MIN..VMAtom::MAX;
+                let mut range = VMAtom::MIN..=VMAtom::MAX;
                 let op_res = match op.to_ascii_lowercase().as_str() {                    
                     "reg" => { args = 0b001; OpCode::REG }
                     "set" => { OpCode::SET }
@@ -261,7 +320,7 @@ impl VirtMach <'_> {
                     "add" => { OpCode::ADD }                                        
                     "sub" => { OpCode::SUB }                    
                     "cal" => { args = 0b110; OpCode::CAL }                                        
-                    "int" => { args = 0b110; range = 0..15; OpCode::INT }                                        
+                    "int" => { args = 0b110; range = 0..=14; OpCode::INT }                                        
                     "jmp" => { args = 0b110; OpCode::JMP }                                        
                     "jpz" => { args = 0b110; OpCode::JPZ }                                                            
                     "jpc" => { args = 0b110; OpCode::JPC }                                        
@@ -284,7 +343,7 @@ impl VirtMach <'_> {
                     Argument::Register(reg) => if args & 0b001 == 0 {
                         return Err(ListingError::IllegalArgument(line_no, "did not expect a register"))                        
                     } else {
-                        dest.put_u8(op_u8 | (reg << 4));
+                        data.put_u8(op_u8 | (reg << 4));
                         len += 1;
                     },
                     Argument::Atom(num) => if args & 0b010 == 0 {
@@ -293,12 +352,12 @@ impl VirtMach <'_> {
                         if range.contains(&num) {
                             match op_res {
                                 OpCode::INT => {
-                                    dest.put_u8(op_u8 | (num << 4) as u8);                                    
+                                    data.put_u8(op_u8 | (num << 4) as u8);                                    
                                     len += 1;
                                 }
                                 _ => {
-                                    dest.put_u8(op_u8 | 0xf0);
-                                    dest.put_atom(num);                                       
+                                    data.put_u8(op_u8 | 0xf0);
+                                    data.put_atom(num);                                       
                                     len += 1 + size_of::<VMAtom>();
                                 }
                             }
@@ -312,12 +371,12 @@ impl VirtMach <'_> {
                         match op_res {
                             OpCode::INT => {
                                 if interrupts.contains(&String::from(label)) {
-                                    dest.put_u8(op_u8 | (functions.get(label).unwrap().0 << 4) as u8);                                    
+                                    data.put_u8(op_u8 | (functions.get(label).unwrap().0 << 4) as u8);                                    
                                     len += 1;
                                 }else{
                                     let int_no: u8 = str::parse(label).unwrap_or(255);                                    
                                     if (int_no as usize) < interrupts.len() {
-                                        dest.put_u8(op_u8 | (int_no << 4) as u8);                                    
+                                        data.put_u8(op_u8 | (int_no << 4) as u8);                                    
                                         len += 1;
                                     }else{
                                         return Err(ListingError::UnknownInterrupt(line_no, label));
@@ -325,17 +384,15 @@ impl VirtMach <'_> {
                                 }                                                               
                             }
                             _ => {
-                                dest.put_u8(op_u8 | 0xf0);
-                                dest.put_atom(0);
+                                data.put_u8(op_u8 | 0xf0);
+                                data.put_atom(0);
                                 len += 1 + size_of::<VMAtom>();
-                                jumps[jumps_i].label = label;
-                                jumps[jumps_i].address = len;   
-                                jumps_i += 1;     
+                                jumps.push(Jump { label, address: len, line_no });
                             }
                         }                        
                     },
                     Argument::Empty() => if args == 0b000 {
-                        dest.put_u8(op_u8);
+                        data.put_u8(op_u8);
                         len += 1;
                     } else {
                         return Err(ListingError::IllegalArgument(line_no, "missing argument"))
@@ -347,25 +404,23 @@ impl VirtMach <'_> {
             }            
         }      
         
-        for jump in jumps {
-            if jump.label.len() == 0 { break; }
-            for label in labels {
-                if label.name.len() == 0 { return Err(ListingError::UnknownLabel(jump.line_no, jump.label)); }
-                if label.name == jump.label {
-                    let diff = label.address as VMAtom - jump.address as VMAtom;                    
-                    dest[1 + jump.address - size_of::<VMAtom>()..].as_mut().put_atom(diff);
-                    break; 
+        for jump in &jumps {
+            match labels.iter().find(|label| label.name == jump.label) {
+                Some(label) => {
+                    let diff = label.address as VMAtom - jump.address as VMAtom;
+                    data[db_end + jump.address - size_of::<VMAtom>()..].as_mut().put_atom(diff);
                 }
+                None => return Err(ListingError::UnknownLabel(jump.line_no, jump.label))
             }
         }                        
 
-        let buf = unsafe { alloc_zeroed(Layout::from_size_align( dest.len(), 1).unwrap()) };        
-        unsafe { buf.copy_from(dest.as_ptr(), dest.len()); }
+        let buf = unsafe { alloc_zeroed(Layout::from_size_align( data.len(), 1).unwrap()) };        
+        unsafe { buf.copy_from(data.as_ptr(), data.len()); }        
 
         return Ok((Program {
                 source: 254,
-                id: name,
-                data: unsafe { slice::from_raw_parts(buf, dest.len()) }
+                id: name,                
+                data: unsafe { slice::from_raw_parts(buf, data.len()) }
             }, buf ));
     }   
 

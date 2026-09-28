@@ -11,6 +11,7 @@ mod processor;
 mod virtmach;
 mod errors;
 mod program;
+mod string;
 mod writer;
 mod decompile;
 mod reporting;
@@ -27,3 +28,9 @@ cfg_block!{
         pub use compile::*;
     }
 }
+
+#[cfg(feature="basic")]
+extern crate std;
+
+#[cfg(feature="basic")]
+pub mod basic;

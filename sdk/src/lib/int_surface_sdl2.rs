@@ -81,7 +81,28 @@ impl SoftInterrupt for IntSurface <'_> {
                 let color = vm.stack_pop();
                 self.canvas.set_draw_color(COLORS[if color == 0 { 0 } else { 1 }]);
                 let _ = self.canvas.draw_line(Point::from((x_0 as i32, y_0 as i32)), Point::from((x_1 as i32, y_1 as i32)));
-            }    
+            }
+            10 => {
+                let x = vm.stack_pop();
+                let y = vm.stack_pop();
+                let _font = vm.stack_pop();
+                let text = vm.stack_pop() as u8;
+                let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string()).unwrap();
+                let texture_creator = self.canvas.texture_creator();
+                let font = ttf_context.load_font("examples/programs/4x3.otf", 4).unwrap();                
+                let surface = font.render(vm.get_str(text)).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+                self.canvas.copy(&texture, None, Rect::new(x as i32, y as i32, surface.width(), surface.height()));
+            }
+            15 => {
+                let _font = vm.stack_pop();
+                let text = vm.stack_pop() as u8;
+                let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string()).unwrap();                
+                let font = ttf_context.load_font("examples/programs/4x3.otf", 4).unwrap();                
+                let size = font.size_of(vm.get_str(text)).unwrap();                                
+                vm.stack_push(size.0 as VMAtom);
+                vm.stack_push(size.1 as VMAtom);
+            }             
             16 => {
                 [self.canvas.viewport().w, self.canvas.viewport().h].iter().for_each(|v| { vm.stack_push(*v as VMAtom); });                
             }

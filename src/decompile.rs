@@ -7,16 +7,17 @@ impl VirtMach <'_> {
     pub fn decompile <W: Write> (program: &Program, position: usize, mut writer: W) -> usize {
         let mut ret = 1;
         
-        if position >= program.data.len() as usize {
+        let instructions = program.get_instructions();   
+        
+        if position >= instructions.len() as usize {
             let _ = writer.write_str("?");
             return 0;
         }
-        
-        let instructions = program.data;     
+                  
         let byte = instructions[position];
         
         let reg = byte >> 4;
-        let val = if position + 1 + size_of::<VMAtom>() > program.data.len() { 0 } else { instructions[position + 1 ..position + 1 + size_of::<VMAtom>()].as_ref().get_atom() };
+        let val = if position + 1 + size_of::<VMAtom>() > instructions.len() { 0 } else { instructions[position + 1 ..position + 1 + size_of::<VMAtom>()].as_ref().get_atom() };
 
         let mut buf = [0u8;16];
         let mut arg= Writer::from_buffer(&mut buf);

@@ -1,0 +1,83 @@
+REM Control flow: ELSEIF, SELECT CASE, DO ... LOOP, EXIT, ON ... GOTO/GOSUB,
+REM named labels and FOR with a variable STEP
+REM After END: SIZES = 1234, KINDS = 11234, CS = 2, DOWHILE = 10, DOUNTIL = 12,
+REM            DU = 5, LOOPWHILE = 101, FOUND = 7, EXITDO = 4, EXITWHILE = 6,
+REM            ONSUM = 111, STEPS = 18, BACK = 5
+
+SIZES = 0
+FOR I = 1 TO 4
+  SELECT CASE I
+    CASE 1: N = -5
+    CASE 2: N = 0
+    CASE 3: N = 7
+    CASE ELSE: N = 500
+  END SELECT
+  IF N < 0 THEN
+    S = 1
+  ELSEIF N = 0 THEN
+    S = 2
+  ELSEIF N < 100 THEN
+    S = 3
+  ELSE
+    S = 4
+  END IF
+  SIZES = SIZES * 10 + S
+NEXT I
+
+KINDS = 0
+FOR I = 1 TO 5
+  SELECT CASE I * 3
+    CASE 3, 6: K = 1
+    CASE 7 TO 10: K = 2
+    CASE IS > 12: K = 4
+    CASE ELSE: K = 3
+  END SELECT
+  KINDS = KINDS * 10 + K
+NEXT
+
+C$ = "b"
+SELECT CASE C$
+  CASE "a": CS = 1
+  CASE "b", "c": CS = 2
+  CASE ELSE: CS = 3
+END SELECT
+
+N = 0 : DO WHILE N < 10 : N = N + 1 : LOOP : DOWHILE = N
+N = 0 : DO : N = N + 3 : LOOP UNTIL N >= 10 : DOUNTIL = N
+N = 0 : DO UNTIL N = 5 : N = N + 1 : LOOP : DU = N
+N = 100 : DO : N = N + 1 : LOOP WHILE N < 0 : LOOPWHILE = N
+
+FOR I = 1 TO 100
+  IF I * I > 40 THEN FOUND = I : EXIT FOR
+NEXT I
+N = 0
+DO
+  N = N + 1
+  IF N = 4 THEN EXIT DO
+LOOP
+EXITDO = N
+N = 0
+WHILE 1
+  N = N + 2
+  IF N > 5 THEN EXIT WHILE
+WEND
+EXITWHILE = N
+
+ONSUM = 0
+FOR I = 1 TO 3
+  ON I GOSUB ADD1, ADD10, ADD100
+NEXT I
+ON 2 GOTO WRONG, RIGHT
+WRONG:
+ONSUM = -1
+RIGHT:
+
+ST = 3 : STEPS = 0
+FOR I = 0 TO 10 STEP ST : STEPS = STEPS + I : NEXT
+ST = -2 : BACK = 0
+FOR I = 9 TO 1 STEP ST : BACK = BACK + 1 : NEXT I
+END
+
+ADD1: ONSUM = ONSUM + 1 : RETURN
+ADD10: ONSUM = ONSUM + 10 : RETURN
+ADD100: ONSUM = ONSUM + 100 : RETURN

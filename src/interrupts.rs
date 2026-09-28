@@ -3,6 +3,7 @@ use crate::{ VirtMach, VMAtom };
 pub mod dummy;
 pub mod proc;
 pub mod math;
+pub mod string;
 #[cfg(feature = "random")]
 pub mod random;   
 pub mod surface;

@@ -36,7 +36,7 @@ impl <'a> VirtMach <'_> {
         let res =  Self {
             registers: [0 as VMAtom;REG_MAX],
             memory: [0 as VMAtom;MEM_SIZE],            
-            program: Program::EMPTY,                
+            program: Program::EMPTY,                 
             error: RuntimeError::NoError,
             cycle_cnt: 0,
             processor: Processor::default(),
@@ -53,13 +53,6 @@ impl <'a> VirtMach <'_> {
             return;
         }
 
-        let data = &program.data[1..];
-        
-        if data.len() == 0 {
-            self.program = Program::EMPTY;
-            return;
-        }
-
         if program.data[0] != ATOM_ID {
             self.program = Program::ERROR;
             self.error = RuntimeError::MismatchedAtomType;
@@ -69,10 +62,10 @@ impl <'a> VirtMach <'_> {
         self.reset();  
         self.program.source = program.source;
         self.program.id = unsafe { str::from_utf8_unchecked(slice::from_raw_parts(program.id.as_ptr(), program.id.len())) };
-        self.program.data = unsafe { slice::from_raw_parts(data.as_ptr(), data.len()) };
+        self.program.data = unsafe { slice::from_raw_parts(program.data.as_ptr(), program.data.len()) };        
         self.processor = Processor::default();         
         self.state = Runtime::Hlt;             
-    }
+    }    
 
     pub fn stack_push(&mut self, val: VMAtom) {
         if self.processor.stack_ptr == 0 {
@@ -98,12 +91,12 @@ impl <'a> VirtMach <'_> {
             return;
         }
 
-        if self.processor.prog_cnt >= self.program.data.len() {
+        let instructions = self.program.get_instructions();    
+
+        if self.processor.prog_cnt >= instructions.len() {
             self.error = RuntimeError::ProgramOutOfBounds;
             return;
-        }
-
-        let instructions = self.program.data;        
+        }            
 
         let byte = instructions[self.processor.prog_cnt];
         let op = byte & 0x0f;
