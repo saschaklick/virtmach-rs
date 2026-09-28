@@ -34,5 +34,6 @@ pest_derive = { version = "2.8", optional = true }
 [dev-dependencies]
 bitmap_writer = { version = "0.1.2", features = ["std"] }
 sdl2 = { version = "0.38.0", features= ["ttf"] }
+rustix = "=1.1.4"
 
 
