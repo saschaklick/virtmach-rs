@@ -31,19 +31,19 @@ impl SoftInterrupt for Interrupt {
     fn call(&mut self, vm: &mut VirtMach) {
         let op = vm.stack_pop();        
         match op {
-            3 | 9 => {
+            3 | 10 => {
                 let a = vm.stack_pop();
-                let res;                
+                let res =
                 match op {
-                    3 => { res = ( !a, false); }
-                    9 => { res = (0, false); vm.error = RuntimeError::UnimplementedInterruptFunc; }                    
-                    _ => { res = (0, false); vm.error = RuntimeError::UnimplementedInterruptFunc; }
-                }
+                    3 => ( !a, false),
+                    10 => { match a.checked_isqrt() { Some(r) => (r, false), None => { vm.error = RuntimeError::IllegalInstructionValue; (0, false) } } }
+                    _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; (0, false) }
+                };               
                 vm.processor.zero = res.0 == 0;
                 vm.processor.carry = res.1;
                 vm.stack_push(res.0);                  
             }
-            0 .. 3 | 4 .. 9 => {
+            0 .. 3 | 4 .. 10 => {
                 let a = vm.stack_pop();
                 let b = vm.stack_pop();
                 let res;                
@@ -56,7 +56,7 @@ impl SoftInterrupt for Interrupt {
                     6  => { res = a.overflowing_mul(b); }                    
                     7  => { res = if b != 0 { a.overflowing_div(b) } else { (0, false) }; if b == 0 { vm.error = RuntimeError::InterruptError; } }
                     8  => { res = if b != 0 { (a % b, false) } else { (0, false) }; if b == 0 { vm.error = RuntimeError::InterruptError; } }
-                    9  => { res = a.overflowing_pow(b as u32); }                      
+                    9  => { res = a.overflowing_pow(b as u32); }                                          
                     _ => { res = (0, false); vm.error = RuntimeError::UnimplementedInterruptFunc; }
                 }
                 vm.processor.zero = res.0 == 0;
