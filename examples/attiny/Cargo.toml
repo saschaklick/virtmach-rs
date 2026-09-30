@@ -6,16 +6,17 @@ edition = "2018"
 
 [features]
 default = ["rt"]
-rt = ["attiny85-hal/rt"]
+rt = ["attiny-hal/rt"]
 
 [dependencies]
-panic-halt = "0.2.0"
-avr-device = "0.3.0"
-embedded-hal = "0.2.4"
+panic-halt = "1.0.0"
+avr-device = { version = "0.8.1", features = ["attiny85"] }
+embedded-hal = "1.0"
 
-[dependencies.attiny85-hal]
+[dependencies.attiny-hal]
 git = "https://github.com/rahix/avr-hal"
-rev = "a202778"
+rev = "e0b0105b11a7c4209fb1704276a7921c3139d5cb"
+features = ["attiny85"]
 
 [profile.dev]
 panic = "abort"
