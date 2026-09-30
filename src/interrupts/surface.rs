@@ -1,4 +1,4 @@
-use crate::interrupts::SoftInterruptFunction;
+use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "surface";
 
@@ -18,3 +18,35 @@ pub static FUNCTIONS: [SoftInterruptFunction;13] = [
     SoftInterruptFunction { no: 18, name: "get_clip",       arguments: 0, returns: 4, help: "Get surface clipping area ()->(x,y,w,h)" },
     SoftInterruptFunction { no: 19, name: "set_clip",       arguments: 4, returns: 0, help: "Set surface clipping area (x,y,w,h)->()" }
 ];
+
+pub struct Interrupt {}
+
+impl SoftInterrupt for Interrupt {
+    fn name(&self) -> &str {
+        return NAME;
+    }
+
+    #[cfg(feature = "compile")]
+    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] where Self:Sized {
+        return &FUNCTIONS;
+    }
+
+    fn call(&mut self, vm: &mut VirtMach) {
+        let op = vm.stack_pop();
+        match op {
+            0 => { let _color = vm.stack_pop(); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            1 => { let (_x, _y, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            2 | 3 => { let (_x, _y, _w, _h, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            4 => { let (_x1, _y1, _x2, _y2, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            5 => { let (_x, _y, _w, _h, _border_idx) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            6 => { let (_x, _y, _image_idx) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            10 => { let (_x, _y, _font_idx, _db_index) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            15 => { let (_font_idx, _db_index) = (vm.stack_pop(), vm.stack_pop()); vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            16 => { vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            17 => { let _image_idx = vm.stack_pop(); vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            18 => { vm.stack_push(0); vm.stack_push(0); vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            19 => { let (_x, _y, _w, _h) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }
+        }
+    }
+}

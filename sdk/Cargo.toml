@@ -12,6 +12,9 @@ name = "runtime"
 [[bin]]
 name = "basic"
 
+[[bin]]
+name = "gen-csv"
+
 [features]
 default = ["basic", "string"]
 string = ["virtmach/alloc"]

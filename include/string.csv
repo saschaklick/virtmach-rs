@@ -1,6 +1,6 @@
 name,index,arguments,returns,description
 get_length,0,1,1,"Get the length of a string (index)->(length)"
-substr,1,4,0,"Create a substring (dest_index,src_index,start,end)->()"
-format,2,2,0,"Converts a number to a string (dest_index,number)->()"
+substr,1,4,0,"Truncate a string (dest_index,src_index,start,end)->()"
+format,2,2,0,"Converts an atom to a string (dest_index,number)->()"
 concat,3,3,0,"Concats two strings into one (dest_index,first_index,second_index)->()"
 compare,4,2,1,"Compares two strings byte by byte (first_index,second_index)->(-1 less, 0 equal, 1 greater)"
