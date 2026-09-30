@@ -79,7 +79,7 @@ fn main() -> Result<(), String> {
                     &mut interrupts::trig::Interrupt {}
                 ];                            
                 
-                vm.run(1024, interrupts);
+                vm.run(4096, interrupts);
 
                 match vm.state {
                     virtmach::Runtime::Run => {}

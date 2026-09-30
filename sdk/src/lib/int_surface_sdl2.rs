@@ -92,7 +92,7 @@ impl SoftInterrupt for IntSurface <'_> {
                 let font = ttf_context.load_font("examples/programs/4x3.otf", 4).unwrap();                
                 let surface = font.render(vm.get_str(text)).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
                 let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
-                self.canvas.copy(&texture, None, Rect::new(x as i32, y as i32, surface.width(), surface.height()));
+                let _ = self.canvas.copy(&texture, None, Rect::new(x as i32, y as i32, surface.width(), surface.height()));
             }
             15 => {
                 let _font = vm.stack_pop();

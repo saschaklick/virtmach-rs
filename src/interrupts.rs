@@ -8,6 +8,9 @@ pub mod string;
 pub mod random;   
 pub mod surface;
 pub mod trig;
+pub mod gpio;
+pub mod uart;
+pub mod i2c;
 
 #[cfg(feature = "compile")]
 extern crate std;

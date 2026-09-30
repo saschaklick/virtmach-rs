@@ -50,7 +50,7 @@ fn main(){
             ];                            
 
             loop {
-                vm.run(1024, interrupts);
+                vm.run(4096, interrupts);
 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
@@ -63,7 +63,6 @@ fn main(){
                     
                         for (i, line) in dashboard.lines().enumerate() { print!("\x1b[{};{}H {}\x1b[K", i + 1, W + 3, line); }
                         helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, W + 4);
-                        println!("");
                     }
                 } else {                                    
                     println!("{}", dashboard);

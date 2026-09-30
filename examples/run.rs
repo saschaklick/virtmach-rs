@@ -40,7 +40,6 @@ fn main(){
                 print!("\x1b[H\x1b[J");
                 print!("{}", dashboard);
                 helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, 1);
-                println!();
 
                 thread::sleep(time::Duration::from_millis(delay))
             }

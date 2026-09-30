@@ -1,0 +1,10 @@
+name,index,arguments,returns,description
+setup,0,2,0,"Set the pin mode, 0 input, 1 output, 2 open-drain (pin,mode)->()"
+set_pull,1,2,0,"Set the pull resistor, 0 none, 1 up, 2 down (pin,pull)->()"
+write,2,2,0,"Set an output low or high (pin,level)->()"
+high,3,1,0,"Set an output high (pin)->()"
+low,4,1,0,"Set an output low (pin)->()"
+toggle,5,1,0,"Toggle an output (pin)->()"
+read,6,1,1,"Read an input, 0 low, 1 high (pin)->(level)"
+write_mask,10,3,0,"Set the outputs of a port whose mask bits are set to the bits of values (port,mask,values)->()"
+read_mask,11,2,1,"Read the inputs of a port whose mask bits are set, the other bits are 0 (port,mask)->(values)"

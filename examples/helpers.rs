@@ -1,4 +1,4 @@
-use std::{ env, ffi::OsStr, fs::File, io::Read, path::Path };
+use std::{ env, ffi::OsStr, fs::File, io::{ Read, Write }, path::Path };
 use virtmach::{ VirtMach, VMAtom, Program, interrupts::SoftInterruptFunction };
 
 #[allow(dead_code)]
@@ -114,11 +114,19 @@ pub fn variable_values(vm: &VirtMach, variables: &[(String, Slot)]) -> Vec<Strin
 }
 
 /// Prints the BASIC variable values with ANSI cursor positioning in a column to the right of the
-/// dashboard, which was printed at the given 1-based row and column
+/// dashboard, which was printed at the given 1-based row and column. Leaves the cursor at the start
+/// of the screen line below the dashboard.
 #[allow(dead_code)]
 pub fn print_variables_beside(vm: &VirtMach, variables: &[(String, Slot)], dashboard: &str, row: usize, column: usize) {
     let column = column + dashboard.lines().map(|l| l.chars().count()).max().unwrap_or(0) + 1;
-    for (i, line) in variable_values(vm, variables).iter().enumerate() { print!("\x1b[{};{}H{}\x1b[K", row + i, column, line); }
+    let values: Vec<String> = variable_values(vm, variables).iter().map(|l| format!("|{}", l)).collect();
+    if !values.is_empty() {
+        let width = values.iter().map(|l| l.chars().count()).max().unwrap_or(0).max(16);
+        let header = [String::from("BASIC VARIABLES"), "-".repeat(width)];
+        for (i, line) in header.iter().chain(values.iter()).enumerate() { print!("\x1b[{};{}H{}\x1b[K", row + i, column, line); }
+    }
+    print!("\x1b[{};1H", row + dashboard.lines().count());
+    let _ = std::io::stdout().flush();
 }
 
 #[warn(dead_code)]

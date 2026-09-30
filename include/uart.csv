@@ -1,0 +1,10 @@
+name,index,arguments,returns,description
+setup,0,3,0,"Set up a port, baud rate / 10, config 0 is 8N1 (port,baud,config)->()"
+available,1,1,1,"Number of received bytes waiting to be read (port)->(count)"
+read,2,1,1,"Read one received byte, -1 if there is none (port)->(byte)"
+write,3,2,0,"Send one byte (port,byte)->()"
+write_available,4,1,1,"Number of bytes that can be sent without waiting, 0 while busy (port)->(count)"
+read_str,10,3,1,"Read up to max received bytes into a string (port,dest_index,max)->(count)"
+read_mem,11,3,1,"Read up to max received bytes into memory, one per cell (port,address,max)->(count)"
+write_str,12,4,1,"Send length bytes of a string from start (port,src_index,start,length)->(count)"
+write_mem,13,3,1,"Send length bytes from memory, one per cell (port,address,length)->(count)"

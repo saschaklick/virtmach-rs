@@ -33,5 +33,8 @@ fn main() -> Result<(), String> {
     write(&dir, interrupts::string::NAME, &interrupts::string::FUNCTIONS)?;
     write(&dir, interrupts::surface::NAME, &interrupts::surface::FUNCTIONS)?;
     write(&dir, interrupts::trig::NAME, &interrupts::trig::FUNCTIONS)?;
+    write(&dir, interrupts::gpio::NAME, &interrupts::gpio::FUNCTIONS)?;
+    write(&dir, interrupts::uart::NAME, &interrupts::uart::FUNCTIONS)?;
+    write(&dir, interrupts::i2c::NAME, &interrupts::i2c::FUNCTIONS)?;
     Ok(())
 }

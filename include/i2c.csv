@@ -1,0 +1,12 @@
+name,index,arguments,returns,description
+setup,0,2,0,"Set up a port as controller, bus clock in kHz (port,speed)->()"
+probe,1,2,1,"Check if a device acknowledges its address, 0 or negative status (port,device)->(status)"
+write_byte,2,3,1,"Send one byte to a device (port,device,byte)->(count)"
+read_byte,3,2,1,"Read one byte from a device (port,device)->(byte)"
+write_reg,4,4,1,"Write a byte to a device register (port,device,reg,byte)->(count)"
+read_reg,5,3,1,"Read a byte from a device register (port,device,reg)->(byte)"
+write_mem,10,4,1,"Send length bytes from memory, one per cell (port,device,address,length)->(count)"
+read_mem,11,4,1,"Read length bytes into memory, one per cell (port,device,address,length)->(count)"
+write_str,12,5,1,"Send length bytes of a string from start (port,device,src_index,start,length)->(count)"
+read_str,13,4,1,"Read length bytes into a string (port,device,dest_index,length)->(count)"
+write_read_mem,14,6,1,"Send bytes from memory, then read into memory after a repeated start (port,device,src_address,src_length,dest_address,dest_length)->(count read)"
