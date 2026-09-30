@@ -32,5 +32,6 @@ fn main() -> Result<(), String> {
     write(&dir, interrupts::random::NAME, &interrupts::random::FUNCTIONS)?;
     write(&dir, interrupts::string::NAME, &interrupts::string::FUNCTIONS)?;
     write(&dir, interrupts::surface::NAME, &interrupts::surface::FUNCTIONS)?;
+    write(&dir, interrupts::trig::NAME, &interrupts::trig::FUNCTIONS)?;
     Ok(())
 }

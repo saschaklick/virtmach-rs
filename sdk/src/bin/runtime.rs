@@ -2,7 +2,7 @@ use std::{thread, time, fs::File, io::Read };
 use simple_logger;
 use clap::Parser;
 use bytes::{ BytesMut };
-use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random } };
+use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random, trig::Interrupt as Trig } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 #[derive(Parser, Debug)]
@@ -57,14 +57,14 @@ fn main() -> Result<(), String> {
 
                     let mut buf = [0u8;1024];
 
-                    let (mut proc, mut math, mut string_int, mut random) = (Proc {}, Math {}, StringInt {}, Random {});
+                    let (mut proc, mut math, mut string_int, mut random, mut trig) = (Proc {}, Math {}, StringInt {}, Random {}, Trig {});
                     let mut term = int_surface_term::IntSurface { w: 64, h: 40, clip: [0, 0, 63, 39], bitmap: &mut buf };
 
                     loop {
                         {
                             let interrupts: &mut [&mut dyn SoftInterrupt] = match surface {
-                                "term" => &mut [ &mut proc, &mut math, &mut string_int, &mut random, &mut term ],
-                                _ => &mut [ &mut proc, &mut math, &mut random ]
+                                "term" => &mut [ &mut proc, &mut math, &mut string_int, &mut random, &mut term, &mut trig ],
+                                _ => &mut [ &mut proc, &mut math, &mut random, &mut trig ]
                             };
                             vm.run(1024, interrupts);
                         }

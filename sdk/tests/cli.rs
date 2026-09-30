@@ -8,9 +8,9 @@ const BASIC: &str = env!("CARGO_BIN_EXE_basic");
 const RUNTIME: &str = env!("CARGO_BIN_EXE_runtime");
 
 /// Interrupts in the order the runtime provides them without a surface
-const PLAIN: [&str; 3] = ["proc", "math", "random"];
+const PLAIN: [&str; 4] = ["proc", "math", "random", "trig"];
 /// Interrupts in the order the runtime provides them with the term surface
-const TERM: [&str; 5] = ["proc", "math", "string", "random", "surface"];
+const TERM: [&str; 6] = ["proc", "math", "string", "random", "surface", "trig"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -196,7 +196,7 @@ fn runtime_errors() {
     // without -s term there is no surface interrupt to call
     let source = dir.join("surface.bas");
     fs::write(&source, "REM\nsurface.clear(0)\nEND\n").unwrap();
-    let bin = compile(BASIC, &source.display().to_string(), &["proc", "math", "random", "surface"], &dir, "surface");
+    let bin = compile(BASIC, &source.display().to_string(), &["proc", "math", "random", "trig", "surface"], &dir, "surface");
     let out = run(RUNTIME, &[&bin, "-v", "0"], &root());
     assert_fails(&out, "runtime error: UnhandledInterrupt");
 

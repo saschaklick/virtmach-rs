@@ -7,6 +7,7 @@ pub mod string;
 #[cfg(feature = "random")]
 pub mod random;   
 pub mod surface;
+pub mod trig;
 
 #[cfg(feature = "compile")]
 extern crate std;

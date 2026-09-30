@@ -10,7 +10,8 @@ fn main(){
     let tables: Vec<(&str, &[SoftInterruptFunction])> = [
         (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
         (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice())
+        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
+        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
     ].to_vec();
 
     let Some(source) = helpers::load_source("examples/programs/count.txt", &tables) else { return };
@@ -26,7 +27,8 @@ fn main(){
             let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
                 &mut interrupts::proc::Interrupt {},
                 &mut interrupts::math::Interrupt {},
-                &mut interrupts::random::Interrupt {}
+                &mut interrupts::random::Interrupt {},
+                &mut interrupts::trig::Interrupt {}
             ];
 
             loop {
@@ -36,8 +38,9 @@ fn main(){
                 vm.write_dashboard(&mut dashboard, 0b111, 5);
 
                 print!("\x1b[H\x1b[J");
-                println!("{}", dashboard);
-                for line in helpers::variable_values(&vm, &source.variables) { println!("{}", line); }
+                print!("{}", dashboard);
+                helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, 1);
+                println!();
 
                 thread::sleep(time::Duration::from_millis(delay))
             }

@@ -156,9 +156,9 @@ mod tests {
     use std::path::PathBuf;
     use virtmach::basic::{ Error, Output };
     use crate::interrupt_csv::Functions;
-    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, random, surface, string } };
+    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, random, surface, string, trig } };
 
-    const INTERRUPTS: [&str; 5] = ["proc", "math", "random", "surface", "string"];
+    const INTERRUPTS: [&str; 6] = ["proc", "math", "random", "surface", "string", "trig"];
 
     /// Records surface calls instead of drawing.
     struct MockSurface { calls: usize, texts: Vec<String> }
@@ -233,9 +233,9 @@ mod tests {
 
         let mut vm = VirtMach::new();
         vm.load_program(program);
-        let (mut p, mut m, mut r, mut s, mut t) = (proc::Interrupt {}, math::Interrupt {}, random::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {});
+        let (mut p, mut m, mut r, mut s, mut t, mut g) = (proc::Interrupt {}, math::Interrupt {}, random::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {}, trig::Interrupt {});
         {
-            let mut ints: [&mut dyn SoftInterrupt; 5] = [&mut p, &mut m, &mut r, &mut s, &mut t];
+            let mut ints: [&mut dyn SoftInterrupt; 6] = [&mut p, &mut m, &mut r, &mut s, &mut t, &mut g];
             for _ in 0..=halts {
                 vm.run(1_000_000, &mut ints);
                 if vm.state == Runtime::Stp || vm.state == Runtime::Err { break; }
@@ -315,6 +315,18 @@ mod tests {
         let (x, y) = (run.get("X"), run.get("Y"));
         assert!((1..=62).contains(&x) && (1..=38).contains(&y), "x {} y {}", x, y);
         assert!(run.surface_calls > 600);
+    }
+
+    #[test]
+    fn ellipse() {
+        // the first frame ends at 360 degrees of the unturned ellipse: get_size, set_clip, clear and 36 lines
+        let run = run_file("ellipse.bas", 0);
+        assert_eq!(run.state, Runtime::Hlt);
+        assert_eq!((run.get("X"), run.get("Y")), (32 + 19, 20));
+        assert_eq!(run.surface_calls, 39);
+        // turned by 30 * 3 degrees the same point is at the bottom
+        let run = run_file("ellipse.bas", 30);
+        assert_eq!((run.get("X"), run.get("Y")), (32, 20 + 19));
     }
 
     #[test]
@@ -513,7 +525,7 @@ mod tests {
             ("IF \"a\" = 1 THEN X = 1", "cannot compare a string with a number"),
             ("X = RND(1)", "RND takes"),
             ("SHARED X", "SHARED outside"),
-            ("REQ math, joystick", "requires the joystick interrupt, which is not available (available: proc, math, random, surface, string)"),
+            ("REQ math, joystick", "requires the joystick interrupt, which is not available (available: proc, math, random, surface, string, trig)"),
         ];
         for (src, msg) in cases {
             match build(src) {

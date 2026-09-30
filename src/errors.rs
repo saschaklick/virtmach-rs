@@ -5,6 +5,7 @@ pub enum RuntimeError {
     NoError,
     MismatchedAtomType,
     IllegalInstruction,
+    IllegalInstructionValue,
     RegisterOutOfBounds,
     ProgramOutOfBounds,
     MemoryOutOfBounds,

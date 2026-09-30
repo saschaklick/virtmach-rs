@@ -113,6 +113,14 @@ pub fn variable_values(vm: &VirtMach, variables: &[(String, Slot)]) -> Vec<Strin
     }).collect()
 }
 
+/// Prints the BASIC variable values with ANSI cursor positioning in a column to the right of the
+/// dashboard, which was printed at the given 1-based row and column
+#[allow(dead_code)]
+pub fn print_variables_beside(vm: &VirtMach, variables: &[(String, Slot)], dashboard: &str, row: usize, column: usize) {
+    let column = column + dashboard.lines().map(|l| l.chars().count()).max().unwrap_or(0) + 1;
+    for (i, line) in variable_values(vm, variables).iter().enumerate() { print!("\x1b[{};{}H{}\x1b[K", row + i, column, line); }
+}
+
 #[warn(dead_code)]
 pub fn main() {
 }

@@ -1,0 +1,7 @@
+name,index,arguments,returns,description
+sin,0,1,1,"Sine, -MAX..MAX for -1..1 (angle)->(res)"
+cos,1,1,1,"Cosine, -MAX..MAX for -1..1 (angle)->(res)"
+atan2,2,2,1,"Angle of the vector (y,x)->(angle)"
+deg_to_rad,3,1,1,"Degrees to angle, MIN..MAX for -180..180 (deg)->(angle)"
+rad_to_deg,4,1,1,"Angle to degrees, MIN..MAX for -180..180 (angle)->(deg)"
+scale,5,2,1,"Multiply by a sin or cos result, value*factor/MAX rounded (value,factor)->(res)"

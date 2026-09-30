@@ -1,7 +1,7 @@
 #![allow(static_mut_refs)]
 
 use std::{thread, time};
-use virtmach::VirtMach;
+use virtmach::{Runtime, VirtMach};
 use virtmach::{ RuntimeError, interrupts::{ self, SoftInterrupt, SoftInterruptFunction } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
@@ -21,7 +21,8 @@ fn main(){
         (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
         (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
         (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
-        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
+        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
+        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
     ].to_vec();
 
     let Some(source) = helpers::load_source("examples/programs/starfield.txt", &tables) else { return };
@@ -44,7 +45,8 @@ fn main(){
                 &mut interrupts::math::Interrupt {},
                 &mut interrupts::string::Interrupt {},
                 &mut interrupts::random::Interrupt {},
-                &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }
+                &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } },
+                &mut interrupts::trig::Interrupt {}
             ];                            
 
             loop {
@@ -54,13 +56,15 @@ fn main(){
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
                 
                 if vm.error == RuntimeError::NoError {                                    
-                    print!("\x1b[J");
-                    let bitmap = Bitmap::new(W, H, unsafe { &mut BUF });                                   
-                    w.print(&bitmap);
-                
-                    let variables = helpers::variable_values(&vm, &source.variables);
-                    for (i, line) in dashboard.lines().chain(variables.iter().map(String::as_str)).enumerate() { print!("\x1b[{};{}H {}\x1b[K", i + 1, W + 3, line); }
-                    println!("");
+                    if vm.state != Runtime::Run {
+                        print!("\x1b[J");
+                        let bitmap = Bitmap::new(W, H, unsafe { &mut BUF });                                   
+                        w.print(&bitmap);
+                    
+                        for (i, line) in dashboard.lines().enumerate() { print!("\x1b[{};{}H {}\x1b[K", i + 1, W + 3, line); }
+                        helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, W + 4);
+                        println!("");
+                    }
                 } else {                                    
                     println!("{}", dashboard);
                     break;

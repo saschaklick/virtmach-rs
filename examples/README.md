@@ -33,7 +33,7 @@ Compiles file `programs/count.txt` and continuously runs it at 250ms per instruc
 cargo run --example run --features basic -- examples/programs/sum.bas 10
 ```
 
-Runs another listing or a `.bas` program. The optional second argument sets the milliseconds per instruction. For BASIC programs, the variable values are printed below the dashboard. Only the **proc**, **math** and **random** interrupts are available here.
+Runs another listing or a `.bas` program. The optional second argument sets the milliseconds per instruction. For BASIC programs, the variable values are printed to the right of the dashboard. Only the **proc**, **math**, **random** and **trig** interrupts are available here.
 
 ```
 cargo run --example surface_term --features compile
@@ -73,9 +73,10 @@ Every example takes an optional file as its first argument, either a listing or 
 cargo run --example compile --features basic -- examples/programs/gcd.bas
 cargo run --example surface_term --features basic -- examples/programs/bounce.bas
 cargo run --example surface_sdl2 --features basic -- examples/programs/bounce.bas
+cargo run --example surface_term --features basic -- examples/programs/ellipse.bas
 ```
 
-`run` only provides the **proc**, **math** and **random** interrupts. The other examples also provide **surface**.
+`run` only provides the **proc**, **math**, **random** and **trig** interrupts. The other examples also provide **string** and **surface**, with **trig** last.
 
 # Programs
 
@@ -92,6 +93,7 @@ Located in the `programs` directory.
 |`bits.bas`|Hex literals, operators and direct `math.*` calls; spills variables to memory.|**math**|
 |`fib.bas`|Arrays with DIM.|**math**|
 |`dice.bas`|Calls `random.range`.|**math**, **random**|
+|`ellipse.bas`|Draws a rotating ellipse with `trig.sin`, `trig.cos`, `trig.deg_to_rad` and `trig.scale`, and pauses on HALT once per frame.|**math**, **surface**, **trig**|
 |`bounce.bas`|Draws a bouncing box with `surface.*` calls and pauses on HALT once per frame.|**math**, **surface**|
 |`pong.bas`|Pong playing against itself, with computer paddles, bounce angles based on where the ball hits the paddle, and scores turned into text with `STR$` and drawn with `surface.draw_text`. Needs a surface that implements `draw_text` and `get_text_size`, and the `alloc` feature.|**math**, **random**, **surface**, **string**|
 |`control.bas`|`ELSEIF`, `SELECT CASE`, `DO … LOOP`, `EXIT`, `ON … GOTO/GOSUB`, labels and a variable `STEP`.|**math**|

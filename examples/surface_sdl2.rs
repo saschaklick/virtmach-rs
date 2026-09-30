@@ -22,7 +22,8 @@ fn main() -> Result<(), String> {
         (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
         (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
         (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
-        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice())
+        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
+        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
     ].to_vec();
 
     let Some(source) = helpers::load_source("examples/programs/primitives.txt", &tables) else { return Ok(()) };
@@ -74,17 +75,21 @@ fn main() -> Result<(), String> {
                     &mut interrupts::math::Interrupt {},
                     &mut interrupts::string::Interrupt {},
                     &mut interrupts::random::Interrupt {},
-                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
+                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] },
+                    &mut interrupts::trig::Interrupt {}
                 ];                            
                 
                 vm.run(1024, interrupts);
 
-                canvas.present();        
-
+                match vm.state {
+                    virtmach::Runtime::Run => {}
+                    _ => { canvas.present(); }
+                }
+                
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
                 print!("\x1b[H{}", dashboard);
-                for line in helpers::variable_values(&vm, &source.variables) { println!("{}\x1b[K", line); }
+                helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, 1);
                 
                 thread::sleep(time::Duration::from_millis(1000 / 15))
             }                    
