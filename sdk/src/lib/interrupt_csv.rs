@@ -1,7 +1,7 @@
 //! Loads interrupt function definitions from <interrupt>.csv files.
 //!
 //! A csv next to the compiled source file has priority, after that the include directories are
-//! searched in order, starting with ./include/.
+//! searched in order, starting with ./include/ and ending with the repository's include/.
 
 use std::{ collections::HashMap, fs::File, path::{ Path, PathBuf } };
 use csv::ReaderBuilder;
@@ -13,11 +13,16 @@ pub type Functions = HashMap<String, (u8, VMAtom, usize, usize)>;
 
 pub const DEFAULT_INCLUDE: &str = "./include";
 
-/// The directories to look for csv files in: the source file's directory, ./include/ and the given ones.
+/// The repository's include/ at build time, so the tools find its csv files from any directory
+pub const REPO_INCLUDE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../include");
+
+/// The directories to look for csv files in: the source file's directory, ./include/, the given
+/// ones and the repository's include/.
 pub fn search_path(source: &Path, includes: &[String]) -> Vec<PathBuf> {
     let source_dir = source.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
     let mut dirs = vec![source_dir.to_path_buf(), PathBuf::from(DEFAULT_INCLUDE)];
     dirs.extend(includes.iter().map(PathBuf::from));
+    dirs.push(PathBuf::from(REPO_INCLUDE));
     dirs
 }
 

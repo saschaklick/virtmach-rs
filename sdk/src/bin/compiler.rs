@@ -15,7 +15,7 @@ struct Args {
     #[arg(value_delimiter = ' ', num_args = 1.., help = "Additional interrupts to include. Reads from a .csv file by the same name")]
     interrupts: Option<Vec<String>>,
 
-    #[arg(short = 'I', long = "include", help = "Additional directory to search for interrupt .csv files, after the source file's directory and ./include/ (repeatable)")]
+    #[arg(short = 'I', long = "include", help = "Additional directory to search for interrupt .csv files, after the source file's directory and ./include/, before the repository's include/ (repeatable)")]
     include: Vec<String>,
 
     #[arg(short, long, help = "Optional binary output file")]
@@ -83,6 +83,7 @@ fn main() -> Result<(), String> {
                                 ListingError::UnknownFunction(l, e) => { line = Some(l); eprintln!(); eprintln!("[ERROR] unknown function: {}", e); },                                
                                 ListingError::MalformedFunction(l, e) => { line = Some(l); eprintln!(); eprintln!("[ERROR] malformed function: {}", e); },    
                                 ListingError::IllegalInterrupt(l, e) => { line = Some(l); eprintln!(); eprintln!("[ERROR] illegal interrupt: {}", e); },
+                                #[cfg(feature = "basic")]
                                 ListingError::Basic(l, e) => { line = if l > 0 { Some(l) } else { None }; eprintln!(); eprintln!("[ERROR] BASIC: {}", e); },
                                 ListingError::NoError => {},                                
                             } }
@@ -107,6 +108,13 @@ pub fn disassemble(program: &Program) {
     println!();
     let mut pos = 0usize;
     let instructions = program.get_instructions();
+    for index in 0 .. program.get_fixed_bin_count() {
+        let bin = program.get_bin(index);
+        println!("\t{:4} = [{:3}] {} \"{}\"", index, bin.len(), bin.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" "), str::from_utf8(&bin).unwrap_or("<binary>"));
+    }
+    if program.get_fixed_bin_count() > 0 {
+        println!();
+    }
     loop {
         let mut op = String::new();
         let addr = pos;                                        

@@ -24,4 +24,4 @@ jobs:
     - name: Build
       run: cargo build --lib --verbose --features compile
     - name: Run tests
-      run: cargo test --lib --verbose --features compile
+      run: cargo test --verbose --features compile

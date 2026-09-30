@@ -10,37 +10,39 @@ use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 static mut DICT: Vec<Vec<u8>> = Vec::new();
 
+pub use u8 as VMStringIndex;
+
 impl VirtMach <'_> {
     /// Whether a bin exists, without setting an error
-    pub fn has_bin(&self, index: u8) -> bool {
+    pub fn has_bin(&self, index: VMStringIndex) -> bool {
         self.program.has_bin(index)
     }
 
     /// Reads a bin, sets RuntimeError::DictionaryOutOfBound and returns an empty one if it does not exist
-    pub fn get_bin(&mut self, index: u8) -> &[u8] {
+    pub fn get_bin(&mut self, index: VMStringIndex) -> &[u8] {
         if !self.program.has_bin(index) { self.error = RuntimeError::DictionaryOutOfBound; }
         self.program.get_bin(index)
     }
 
     /// Reads a bin as string, see get_bin
-    pub fn get_str(&mut self, index: u8) -> &str {
+    pub fn get_str(&mut self, index: VMStringIndex) -> &str {
         if !self.program.has_bin(index) { self.error = RuntimeError::DictionaryOutOfBound; }
         self.program.get_str(index)
     }
 
     /// Sets a dynamic bin, sets RuntimeError::DictionaryOutOfBound if it cannot be stored: the index
     /// belongs to a fixed bin, the memory cannot be allocated or the alloc feature is off
-    pub fn set_bin(&mut self, index: u8, bin: &[u8]) {
+    pub fn set_bin(&mut self, index: VMStringIndex, bin: &[u8]) {
         if !self.program.set_bin(index, bin) { self.error = RuntimeError::DictionaryOutOfBound; }
     }
 }
 
 impl Program <'_>  {
-    pub fn get_fixed_bin_count(&self) -> u8 {        
+    pub fn get_fixed_bin_count(&self) -> VMStringIndex {        
         self.data[1]
     }
 
-    fn get_bin_addr(&self, index: u8) -> usize {
+    fn get_bin_addr(&self, index: VMStringIndex) -> usize {
         if index == 0 || index > self.get_fixed_bin_count() {
             0
         }else{
@@ -49,11 +51,11 @@ impl Program <'_>  {
         }
     }
     
-    pub fn get_str(&self, index: u8) -> &str {
+    pub fn get_str(&self, index: VMStringIndex) -> &str {
         str::from_utf8(self.get_bin(index)).unwrap_or("")
     }
 
-    pub fn get_bin(&self, index: u8) -> &[u8] {        
+    pub fn get_bin(&self, index: VMStringIndex) -> &[u8] {        
         
         if index >= self.get_fixed_bin_count() {                        
             #[cfg(not(feature = "alloc"))]                        
@@ -69,7 +71,7 @@ impl Program <'_>  {
         }
     }
     
-    pub fn has_bin(&self, index: u8) -> bool {
+    pub fn has_bin(&self, index: VMStringIndex) -> bool {
         if index < self.get_fixed_bin_count() { return true; }
         #[cfg(feature = "alloc")]
         {
@@ -81,7 +83,7 @@ impl Program <'_>  {
     }
 
     /// Stores a dynamic bin, returns false if it cannot be stored
-    pub fn set_bin(&self, _index: u8, _bin: &[u8]) -> bool {
+    pub fn set_bin(&self, _index: VMStringIndex, _bin: &[u8]) -> bool {
         #[cfg(feature = "alloc")]
         if _index >= self.get_fixed_bin_count() {
             let index = (_index - self.get_fixed_bin_count()) as usize;

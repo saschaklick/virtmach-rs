@@ -17,7 +17,7 @@ struct Args {
     #[arg(value_delimiter = ' ', num_args = 1.., help = "Interrupts to include, in the order of the runtime. Reads from a .csv file by the same name")]
     interrupts: Option<Vec<String>>,
 
-    #[arg(short = 'I', long = "include", help = "Additional directory to search for interrupt .csv files, after the source file's directory and ./include/ (repeatable)")]
+    #[arg(short = 'I', long = "include", help = "Additional directory to search for interrupt .csv files, after the source file's directory and ./include/, before the repository's include/ (repeatable)")]
     include: Vec<String>,
 
     #[arg(short, long, help = "Optional binary output file")]
@@ -319,13 +319,14 @@ mod tests {
 
     #[test]
     fn pong() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let run = run_file("pong.bas", 3000);
         assert_eq!(run.state, Runtime::Hlt);
         let (ly, ry, bx, by) = (run.get("LY"), run.get("RY"), run.get("BX"), run.get("BY"));
         assert!((0..=35).contains(&ly) && (0..=35).contains(&ry), "paddles {} {}", ly, ry);
         assert!((-1..=64).contains(&bx) && (0..=39).contains(&by), "ball {} {}", bx, by);
         assert!((0..=9).contains(&run.get("SL")) && (0..=9).contains(&run.get("SR")));
-        assert_eq!(run.output.strings, (0..10).map(|d| d.to_string()).collect::<Vec<_>>());
+        assert!(run.output.strings.is_empty(), "{:?}", run.output.strings);
         let last: Vec<String> = run.texts[run.texts.len() - 2..].to_vec();
         assert_eq!(last, [run.get("SL").to_string(), run.get("SR").to_string()]);
     }

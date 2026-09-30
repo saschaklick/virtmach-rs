@@ -6,6 +6,7 @@ use crate::opcodes::OpCode;
 use crate::processor::Processor;
 
 pub use crate::atom::{ATOM_ID, VMAtom, VMAddr, VAtom};
+pub use crate::string::{VMStringIndex};
 pub use crate::errors::RuntimeError as RuntimeError;
 pub use crate::program::Program as Program;
 pub use crate::writer::Writer as Writer;
@@ -28,7 +29,11 @@ pub struct VirtMach <'a> {
     pub error: RuntimeError,    
     pub(crate) processor: Processor,
     pub state: Runtime,
-    halt_on_brk: bool    
+    halt_on_brk: bool,
+    #[cfg(not(feature = "alloc"))]
+    pub load: Option<VMAtom>,
+    #[cfg(feature = "alloc")]
+    pub load: (Option<VMAtom>,Option<VMStringIndex>)    
 }
 
 impl <'a> VirtMach <'_> {
@@ -41,7 +46,11 @@ impl <'a> VirtMach <'_> {
             cycle_cnt: 0,
             processor: Processor::default(),
             state: Runtime::Ini,
-            halt_on_brk: false,            
+            halt_on_brk: false,
+            #[cfg(not(feature = "alloc"))]
+            load: None,
+            #[cfg(feature = "alloc")]
+            load: (None, None)
         };    
         
         return res;  

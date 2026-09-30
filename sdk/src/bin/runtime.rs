@@ -2,7 +2,7 @@ use std::{thread, time, fs::File, io::Read };
 use simple_logger;
 use clap::Parser;
 use bytes::{ BytesMut };
-use virtmach::{ VirtMach, Program, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random } };
+use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 #[derive(Parser, Debug)]
@@ -96,7 +96,11 @@ fn main() -> Result<(), String> {
 
                         thread::sleep(time::Duration::from_millis(1000 / 60));
 
-                        if false { break; }
+                        match vm.state {
+                            Runtime::Stp => break,
+                            Runtime::Err => return Err(format!("runtime error: {:?}", vm.error)),
+                            _ => {}
+                        }
                     }  
 
                     Ok(())            

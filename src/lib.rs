@@ -20,6 +20,7 @@ pub mod interrupts;
 pub use atom::*;
 pub use virtmach::*;
 pub use processor::*;
+pub use string::VMStringIndex;
 
 cfg_block!{
     #[cfg(feature="compile")] {

@@ -16,5 +16,6 @@ pub enum RuntimeError {
     UnimplementedInterruptFunc,    
     InterruptError,
     DictionaryOutOfBound,
-    AllocFailed
+    AllocFailed,
+    AllocFeatureRequired
 }

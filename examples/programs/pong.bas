@@ -3,11 +3,8 @@ REM Each paddle follows the ball once it crosses into its half, one pixel per fr
 REM Hits near a paddle's edge send the ball off steeper, which the other
 REM paddle may not catch in time. Each side's score is shown at the top
 REM center of its half, both scores start over once a side reaches 10.
-REM the digits are the first strings, so the text for a digit has the digit
-REM as its #db index and a score can be passed to draw_text directly
-REQ surface, random
-T = "0" : T = "1" : T = "2" : T = "3" : T = "4"
-T = "5" : T = "6" : T = "7" : T = "8" : T = "9"
+REM STR$ turns the scores into dynamic strings, which need the vm's alloc feature.
+REQ surface, random, string
 
 W, H = surface.get_size()
 surface.set_clip(0, 0, W, H)
@@ -53,10 +50,11 @@ WHILE 1
   surface.fill_rect(2, LY, 1, PH, 1)
   surface.fill_rect(W - 3, RY, 1, PH, 1)
   surface.fill_rect(BX, BY, 1, 1, 1)
-  T, TH = surface.get_text_size(0, SL)
-  surface.draw_text(W / 4 - T / 2, 1, 0, SL)
-  T, TH = surface.get_text_size(0, SR)
-  surface.draw_text(W * 3 / 4 - T / 2, 1, 0, SR)
+  L$ = STR$(SL) : R$ = STR$(SR)
+  T, TH = surface.get_text_size(0, L$)
+  surface.draw_text(W / 4 - T / 2, 1, 0, L$)
+  T, TH = surface.get_text_size(0, R$)
+  surface.draw_text(W * 3 / 4 - T / 2, 1, 0, R$)
   HALT
 WEND
 

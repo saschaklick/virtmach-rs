@@ -93,7 +93,7 @@ Located in the `programs` directory.
 |`fib.bas`|Arrays with DIM.|**math**|
 |`dice.bas`|Calls `random.range`.|**math**, **random**|
 |`bounce.bas`|Draws a bouncing box with `surface.*` calls and pauses on HALT once per frame.|**math**, **surface**|
-|`pong.bas`|Pong playing against itself, with computer paddles, bounce angles based on where the ball hits the paddle, and scores drawn with `surface.draw_text`. Needs a surface that implements `draw_text` and `get_text_size`.|**math**, **random**, **surface**|
+|`pong.bas`|Pong playing against itself, with computer paddles, bounce angles based on where the ball hits the paddle, and scores turned into text with `STR$` and drawn with `surface.draw_text`. Needs a surface that implements `draw_text` and `get_text_size`, and the `alloc` feature.|**math**, **random**, **surface**, **string**|
 |`control.bas`|`ELSEIF`, `SELECT CASE`, `DO … LOOP`, `EXIT`, `ON … GOTO/GOSUB`, labels and a variable `STEP`.|**math**|
 |`subs.bas`|`SUB`, `FUNCTION`, `DEF FN`, `SHARED` and the built-ins `SWAP`, `SGN`, `MIN`, `MAX`, `RND`.|**math**, **random**, **string**|
 |`strings.bas`|String literals as `#db` entries, passed by index to `string.get_length` and `surface.draw_text`.|**surface**, **string**|
@@ -101,7 +101,7 @@ Located in the `programs` directory.
 
 # BASIC
 
-With the `basic` feature, `VirtMach::compile` and `VirtMach::compile_owned` also accept BASIC programs, so the SDK's `compiler` compiles them too. BASIC is detected by a first line starting with `REM`. `sdk/src/bin/basic.rs` is a BASIC-only front end that can also write the generated listing (`-l`) and prints where each variable is kept. It compiles into a virtmach listing and then into a binary. It takes the same interrupt list as `compiler`: the order sets the interrupt numbers, and each interrupt's functions are checked against the `.csv` file with the same name. Both tools look for that file next to the compiled source first, then in `./include/`, then in each directory given with `-I` (repeatable), in order. The repository's CSV files are in `include/`. Use the runtime's order:
+With the `basic` feature, `VirtMach::compile` and `VirtMach::compile_owned` also accept BASIC programs, so the SDK's `compiler` compiles them too. BASIC is detected by a first line starting with `REM`. `sdk/src/bin/basic.rs` is a BASIC-only front end that can also write the generated listing (`-l`) and prints where each variable is kept. It compiles into a virtmach listing and then into a binary. It takes the same interrupt list as `compiler`: the order sets the interrupt numbers, and each interrupt's functions are checked against the `.csv` file with the same name. Both tools look for that file next to the compiled source first, then in `./include/`, then in each directory given with `-I` (repeatable), in order, and last in the repository's `include/`, where its CSV files are. So they are found from any working directory. Use the runtime's order:
 
 ```
 cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/programs/bounce.bas proc math random surface -l bounce.txt
