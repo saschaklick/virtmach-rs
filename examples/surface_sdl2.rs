@@ -70,13 +70,15 @@ fn main() -> Result<(), String> {
                     }
                 }                        
 
+                // at their INDEX, time is dummy
                 let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                    &mut interrupts::proc::Interrupt {},
                     &mut interrupts::math::Interrupt {},
+                    &mut interrupts::proc::Interrupt {},
                     &mut interrupts::string::Interrupt {},
                     &mut interrupts::random::Interrupt {},
-                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] },
-                    &mut interrupts::trig::Interrupt {}
+                    &mut interrupts::dummy::Interrupt {},
+                    &mut interrupts::trig::Interrupt {},
+                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
                 ];                            
                 
                 vm.run(4096, interrupts);

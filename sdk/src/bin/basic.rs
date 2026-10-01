@@ -156,7 +156,7 @@ mod tests {
     use std::path::PathBuf;
     use virtmach::basic::{ Error, Output };
     use crate::interrupt_csv::Functions;
-    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, random, surface, string, trig } };
+    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, random, surface, string, trig, dummy } };
 
     const INTERRUPTS: [&str; 6] = ["proc", "math", "random", "surface", "string", "trig"];
 
@@ -234,8 +234,13 @@ mod tests {
         let mut vm = VirtMach::new();
         vm.load_program(program);
         let (mut p, mut m, mut r, mut s, mut t, mut g) = (proc::Interrupt {}, math::Interrupt {}, random::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {}, trig::Interrupt {});
+        let [mut time, mut gpio, mut uart, mut i2c] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
         {
-            let mut ints: [&mut dyn SoftInterrupt; 6] = [&mut p, &mut m, &mut r, &mut s, &mut t, &mut g];
+            // at their INDEX like the runtime, the numbers come from load_interrupts
+            let mut ints: [&mut dyn SoftInterrupt; 10] = [&mut m, &mut p, &mut t, &mut r, &mut time, &mut g, &mut s, &mut gpio, &mut uart, &mut i2c];
+            for (slot, int) in ints.iter().enumerate() {
+                assert!(virtmach::interrupts::builtin_index(int.name()).is_none_or(|index| index as usize == slot), "{} in slot {}", int.name(), slot);
+            }
             for _ in 0..=halts {
                 vm.run(1_000_000, &mut ints);
                 if vm.state == Runtime::Stp || vm.state == Runtime::Err { break; }

@@ -2,7 +2,7 @@ use std::{thread, time, fs::File, io::Read };
 use simple_logger;
 use clap::Parser;
 use bytes::{ BytesMut };
-use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random, trig::Interrupt as Trig } };
+use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, proc::Interrupt as Proc, math::Interrupt as Math, string::Interrupt as StringInt, random::Interrupt as Random, trig::Interrupt as Trig, dummy::Interrupt as Dummy } };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 #[derive(Parser, Debug)]
@@ -58,14 +58,17 @@ fn main() -> Result<(), String> {
                     let mut buf = [0u8;1024];
 
                     let (mut proc, mut math, mut string_int, mut random, mut trig) = (Proc {}, Math {}, StringInt {}, Random {}, Trig {});
+                    // for the interrupts this runtime does not have: time, surface without -s term, gpio, uart, i2c
+                    let mut dummies = [Dummy {}, Dummy {}, Dummy {}, Dummy {}, Dummy {}];
                     let mut term = int_surface_term::IntSurface { w: 64, h: 40, clip: [0, 0, 63, 39], bitmap: &mut buf };
 
                     loop {
                         {
-                            let interrupts: &mut [&mut dyn SoftInterrupt] = match surface {
-                                "term" => &mut [ &mut proc, &mut math, &mut string_int, &mut random, &mut term, &mut trig ],
-                                _ => &mut [ &mut proc, &mut math, &mut random, &mut trig ]
-                            };
+                            // every interrupt at its INDEX, see virtmach::interrupts::builtin_index
+                            let [time, no_surface, gpio, uart, i2c] = &mut dummies;
+                            let surface: &mut dyn SoftInterrupt = match surface { "term" => &mut term, _ => no_surface };
+                            let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [ &mut math, &mut proc, &mut string_int, &mut random, time, &mut trig, surface, gpio, uart, i2c ];
+                            debug_assert!(interrupts.iter().enumerate().all(|(slot, int)| virtmach::interrupts::builtin_index(int.name()).is_none_or(|index| index as usize == slot)));
                             vm.run(1024, interrupts);
                         }
                         

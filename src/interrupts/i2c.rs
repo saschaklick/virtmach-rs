@@ -19,6 +19,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "i2c";
 
+pub const INDEX: u8 = 9;
+
 pub const FUNCTIONS: [SoftInterruptFunction;11] = [
     SoftInterruptFunction { no:  0, name: "setup",          arguments: 2, returns: 0, help: "Set up a port as controller, bus clock in kHz (port,speed)->()" },
     SoftInterruptFunction { no:  1, name: "probe",          arguments: 2, returns: 1, help: "Check if a device acknowledges its address, 0 or negative status (port,device)->(status)" },

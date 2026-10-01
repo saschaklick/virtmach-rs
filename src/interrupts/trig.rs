@@ -2,6 +2,8 @@ use crate::{Storage, RuntimeError, VirtMach, VMAtom, interrupts::{ SoftInterrupt
 
 pub const NAME: &str = "trig";
 
+pub const INDEX: u8 = 5;
+
 pub const FUNCTIONS: [SoftInterruptFunction;6] = [
     SoftInterruptFunction { no:  0, name: "sin",        arguments: 1, returns: 1, help: "Sine, -MAX..MAX for -1..1 (angle)->(res)" },
     SoftInterruptFunction { no:  1, name: "cos",        arguments: 1, returns: 1, help: "Cosine, -MAX..MAX for -1..1 (angle)->(res)" },

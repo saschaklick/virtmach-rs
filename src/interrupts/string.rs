@@ -5,6 +5,8 @@ extern crate alloc;
 
 pub const NAME: &str = "string";
 
+pub const INDEX: u8 = 2;
+
 pub const FUNCTIONS: [SoftInterruptFunction;5] = [
     SoftInterruptFunction { no:  0, name: "get_length", arguments: 1, returns: 1, help: "Get the length of a string (index)->(length)" },
     SoftInterruptFunction { no:  1, name: "substr", arguments: 4, returns: 0, help: "Truncate a string (dest_index,src_index,start,end)->()" },

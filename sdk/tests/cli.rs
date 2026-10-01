@@ -7,9 +7,10 @@ const COMPILER: &str = env!("CARGO_BIN_EXE_compiler");
 const BASIC: &str = env!("CARGO_BIN_EXE_basic");
 const RUNTIME: &str = env!("CARGO_BIN_EXE_runtime");
 
-/// Interrupts in the order the runtime provides them without a surface
+/// Interrupts the runtime provides without a surface, the order does not matter: built-in
+/// interrupts are numbered by their INDEX
 const PLAIN: [&str; 4] = ["proc", "math", "random", "trig"];
-/// Interrupts in the order the runtime provides them with the term surface
+/// Interrupts the runtime provides with the term surface
 const TERM: [&str; 6] = ["proc", "math", "string", "random", "surface", "trig"];
 
 fn root() -> PathBuf {
@@ -190,15 +191,24 @@ fn runtime_term_surface() {
 }
 
 #[test]
+fn interrupt_order_does_not_matter() {
+    // built-in interrupts are numbered by their INDEX, not by their position
+    let dir = tmp_dir("interrupt_order_does_not_matter");
+    let forward = compile(BASIC, &program("dice.bas"), &["proc", "math", "random"], &dir, "forward");
+    let backward = compile(BASIC, &program("dice.bas"), &["random", "math", "proc"], &dir, "backward");
+    assert_eq!(fs::read(forward).unwrap(), fs::read(backward).unwrap());
+}
+
+#[test]
 fn runtime_errors() {
     let dir = tmp_dir("runtime_errors");
 
-    // without -s term there is no surface interrupt to call
+    // without -s term the surface slot holds dummy
     let source = dir.join("surface.bas");
     fs::write(&source, "REM\nsurface.clear(0)\nEND\n").unwrap();
     let bin = compile(BASIC, &source.display().to_string(), &["proc", "math", "random", "trig", "surface"], &dir, "surface");
     let out = run(RUNTIME, &[&bin, "-v", "0"], &root());
-    assert_fails(&out, "runtime error: UnhandledInterrupt");
+    assert_fails(&out, "runtime error: UnimplementedInterruptFunc");
 
     let out = run(RUNTIME, &[&dir.join("missing.bin").display().to_string()], &root());
     assert_fails(&out, "failed to open binary");

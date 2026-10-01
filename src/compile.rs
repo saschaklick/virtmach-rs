@@ -74,22 +74,26 @@ impl VirtMach <'_> {
         } }
     }
 
-    fn prepare_function_map(interrupts: Vec::<(&str, &[SoftInterruptFunction])>) -> HashMap::<String, (u8, VMAtom, usize, usize)> {
+    /// The functions of the interrupts, numbered as interrupts::interrupt_numbers does: built-in
+    /// interrupts by their INDEX, others after them in the given order
+    fn prepare_function_map(interrupts: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<HashMap::<String, (u8, VMAtom, usize, usize)>, String> {
         let mut map: HashMap::<String, (u8, VMAtom, usize, usize)> = HashMap::new();
+        let names: Vec<&str> = interrupts.iter().map(|i| i.0).collect();
         
-        for (int_no, interrupt) in interrupts.iter().enumerate() {                        
-            map.insert(String::from(interrupt.0), (int_no as u8, 0, 0, 0));
+        for (interrupt, int_no) in interrupts.iter().zip(crate::interrupts::interrupt_numbers(&names)?) {                        
+            map.insert(String::from(interrupt.0), (int_no, 0, 0, 0));
             for function in interrupt.1 {
-                map.insert(format!("{}.{}", interrupt.0, function.name), (int_no as u8, function.no, function.arguments, function.returns));
+                map.insert(format!("{}.{}", interrupt.0, function.name), (int_no, function.no, function.arguments, function.returns));
             }
         }
 
-        return map;
+        return Ok(map);
     }
 
     pub fn compile <'a> (name: &'a str, listing: &'a str, functions: Vec::<(&str, &[SoftInterruptFunction])>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> { 
         let interrupts = functions.clone().into_iter().map(|a| { String::from(a.0) }).collect::<Vec<String>>();        
-        VirtMach::compile_owned(name, listing, &interrupts, VirtMach::prepare_function_map(functions))
+        let map = VirtMach::prepare_function_map(functions).map_err(|_| ListingError::IllegalInterrupt(0, "interrupt numbers used twice or too many interrupts"))?;
+        VirtMach::compile_owned(name, listing, &interrupts, map)
     }                                       
     
     /// Assembles a listing. With the basic feature, a source whose first non-empty line is a REM statement
@@ -375,7 +379,8 @@ impl VirtMach <'_> {
                                     len += 1;
                                 }else{
                                     let int_no: u8 = str::parse(label).unwrap_or(255);                                    
-                                    if (int_no as usize) < interrupts.len() {
+                                    // a number must belong to one of the interrupts
+                                    if interrupts.iter().any(|i| functions.get(i).is_some_and(|f| f.0 == int_no)) {
                                         data.put_u8(op_u8 | (int_no << 4) as u8);                                    
                                         len += 1;
                                     }else{
@@ -427,7 +432,9 @@ impl VirtMach <'_> {
     
     pub fn functions(&self, interrupts: Vec::<(&str, &[SoftInterruptFunction])>, writer: &mut dyn core::fmt::Write) -> core::fmt::Result {                                        
         writer.write_str("name,int_no,func_no,arguments,returns,description\r\n").expect("");
-        for (int_no, interrupt) in interrupts.iter().enumerate() {                                                
+        let names: Vec<&str> = interrupts.iter().map(|i| i.0).collect();
+        let numbers = crate::interrupts::interrupt_numbers(&names).map_err(|_| core::fmt::Error)?;
+        for (interrupt, int_no) in interrupts.iter().zip(numbers) {                                                
             for function in interrupt.1 {
                 writer.write_fmt(format_args!("{}.{},{},{},{},{},\"{}\"\r\n", interrupt.0, function.name, int_no, function.no, function.arguments, function.returns, function.help)).expect("");                
             }

@@ -18,7 +18,13 @@ fn interval(seconds: VMAtom, microseconds: VMAtom) -> Option<u32> {
     if seconds < 0 || microseconds < 0 {
         return None;
     }
-    let counts = (seconds as u32).checked_mul(1_000_000 / US_PER_COUNT)?.checked_add((microseconds as u32 + US_PER_COUNT / 2) / US_PER_COUNT)?;
+    let (seconds, microseconds) = (seconds as u32, (microseconds as u32 + US_PER_COUNT / 2) / US_PER_COUNT);
+    // up to 16 bit atoms the counts fit into u32 without checks, only i32 atoms can overflow it
+    let counts = if VMAtom::BITS <= 16 {
+        seconds * (1_000_000 / US_PER_COUNT) + microseconds
+    } else {
+        seconds.checked_mul(1_000_000 / US_PER_COUNT)?.checked_add(microseconds)?
+    };
     if counts > i32::MAX as u32 { None } else { Some(counts) }
 }
 
@@ -30,24 +36,21 @@ impl <S: Storage> SoftInterrupt<S> for Time<'_> {
     fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
-            0 => {
+            // wait_for and wait_until share the arguments and their check
+            0 | 1 => {
                 let (seconds, microseconds) = (vm.stack_pop(), vm.stack_pop());
-                match interval(seconds, microseconds) {
-                    Some(counts) => self.clock.wait_until(self.clock.now().wrapping_add(counts)),
-                    None => vm.error = RuntimeError::InterruptError
-                }
+                let waited = match interval(seconds, microseconds) {
+                    Some(counts) if op == 0 => { self.clock.wait_until(self.clock.now().wrapping_add(counts)); return; }
+                    Some(counts) => self.schedule.wait(self.clock, counts),
+                    None => { vm.error = RuntimeError::InterruptError; false }
+                };
+                if op == 1 { vm.stack_push(waited as VMAtom); }
             }
-            1 => {
-                let (seconds, microseconds) = (vm.stack_pop(), vm.stack_pop());
-                match interval(seconds, microseconds) {
-                    Some(counts) => { let waited = self.schedule.wait(self.clock, counts); vm.stack_push(waited as VMAtom); }
-                    None => { vm.stack_push(0); vm.error = RuntimeError::InterruptError; }
-                }
+            // no RTC: get_time pushes hours, minutes, seconds, ms and get_date year, month, day
+            2 | 3 => {
+                for _ in 0..(if op == 2 { 4 } else { 3 }) { vm.stack_push(0); }
+                vm.error = RuntimeError::UnimplementedInterruptFunc;
             }
-            // no RTC: pushed as hours, minutes, seconds, ms
-            2 => { for _ in 0..4 { vm.stack_push(0); } vm.error = RuntimeError::UnimplementedInterruptFunc; }
-            // no RTC: pushed as year, month, day
-            3 => { for _ in 0..3 { vm.stack_push(0); } vm.error = RuntimeError::UnimplementedInterruptFunc; }
             _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }
         }
     }

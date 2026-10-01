@@ -2,6 +2,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "surface";
 
+pub const INDEX: u8 = 6;
+
 #[allow(dead_code)]
 pub static FUNCTIONS: [SoftInterruptFunction;13] = [
     SoftInterruptFunction { no:  0, name: "clear",          arguments: 1, returns: 0, help: "Clear surface (color)->()" },

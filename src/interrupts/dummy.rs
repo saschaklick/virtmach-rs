@@ -1,4 +1,4 @@
-use crate::{Storage, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{RuntimeError, Storage, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "dummy";
 
@@ -16,7 +16,8 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, _vm: &mut VirtMach<S>) {        
+    fn call(&mut self, vm: &mut VirtMach<S>) {  
+        vm.error = RuntimeError::UnimplementedInterruptFunc;
     }
 
 }

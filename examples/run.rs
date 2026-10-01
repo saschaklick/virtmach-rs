@@ -24,11 +24,17 @@ fn main(){
 
             vm.load_program(program);
 
+            // at their INDEX, the ones this example does not have are dummy
             let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                &mut interrupts::proc::Interrupt {},
                 &mut interrupts::math::Interrupt {},
+                &mut interrupts::proc::Interrupt {},
+                &mut interrupts::dummy::Interrupt {},
                 &mut interrupts::random::Interrupt {},
-                &mut interrupts::trig::Interrupt {}
+                &mut interrupts::dummy::Interrupt {},
+                &mut interrupts::trig::Interrupt {},
+                &mut interrupts::gpio::Interrupt {},
+                &mut interrupts::uart::Interrupt {},
+                &mut interrupts::i2c::Interrupt {},
             ];
 
             loop {

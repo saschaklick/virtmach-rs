@@ -4,6 +4,8 @@ use crate::{ VMStringIndex };
 
 pub const NAME: &str = "proc";
 
+pub const INDEX: u8 = 1;
+
 pub const FUNCTIONS: [SoftInterruptFunction;8] = [
     SoftInterruptFunction { no:  0, name: "version",   arguments: 0, returns: 3, help: "Nodem version ()->(major,minor,revision)" },
     SoftInterruptFunction { no:  1, name: "atom_size", arguments: 0, returns: 1, help: "Atom-size in bytes ()->(size)" },

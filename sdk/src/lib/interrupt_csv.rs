@@ -5,7 +5,7 @@
 
 use std::{ collections::HashMap, fs::File, path::{ Path, PathBuf } };
 use csv::ReaderBuilder;
-use virtmach::VMAtom;
+use virtmach::{ VMAtom, interrupts };
 
 /// Interrupt functions by "interrupt.function" name: (interrupt no, function no, arguments, returns).
 /// The bare interrupt name maps to (interrupt no, 0, 0, 0) for `int <interrupt>` in listings.
@@ -34,12 +34,14 @@ pub fn find(dirs: &[PathBuf], name: &str) -> Result<PathBuf, String> {
     })
 }
 
-/// Loads the interrupts in the given order, the order defines the interrupt numbers.
+/// Loads the interrupts, see virtmach::interrupts::interrupt_numbers for their numbers. The order only matters for
+/// interrupts that are not built in.
 pub fn load_interrupts(dirs: &[PathBuf], names: &[String]) -> Result<(Vec<String>, Functions), String> {
     let mut functions = Functions::new();
     let mut interrupts = vec![];
+    let numbers = interrupts::interrupt_numbers(names)?;
 
-    for (int_no, int_name) in names.iter().enumerate() {
+    for (int_name, int_no) in names.iter().zip(numbers) {
         let filename = find(dirs, int_name)?;
         log::info!("interrupt {} from {}", int_name, filename.display());
         let file = File::open(&filename).map_err(|e| format!("could not load {}: {}", filename.display(), e))?;

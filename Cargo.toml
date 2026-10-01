@@ -24,7 +24,6 @@ basic = ["compile", "dep:pest", "dep:pest_derive"]
 i8 = []
 i16 = []
 i32 = []
-# leave out math.pow and math.sqr to save flash, calls set RuntimeError::UnimplementedInterruptFunc
 intmath_nopow = []
 intmath_nosqr = []
 

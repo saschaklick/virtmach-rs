@@ -27,6 +27,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "time";
 
+pub const INDEX: u8 = 4;
+
 pub const FUNCTIONS: [SoftInterruptFunction;4] = [
     SoftInterruptFunction { no:  0, name: "wait_for",   arguments: 2, returns: 0, help: "Wait the interval from now (seconds,microseconds)->()" },
     SoftInterruptFunction { no:  1, name: "wait_until", arguments: 2, returns: 1, help: "Wait until the interval passed since the last wait_until, 1 if it waited, 0 if it was too short (seconds,microseconds)->(waited)" },

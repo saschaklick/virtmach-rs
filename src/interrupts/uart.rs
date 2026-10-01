@@ -19,6 +19,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "uart";
 
+pub const INDEX: u8 = 8;
+
 pub const FUNCTIONS: [SoftInterruptFunction;9] = [
     SoftInterruptFunction { no:  0, name: "setup",     arguments: 3, returns: 0, help: "Set up a port, baud rate / 10, config 0 is 8N1 (port,baud,config)->()" },
     SoftInterruptFunction { no:  1, name: "available", arguments: 1, returns: 1, help: "Number of received bytes waiting to be read (port)->(count)" },

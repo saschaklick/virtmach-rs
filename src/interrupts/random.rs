@@ -2,6 +2,8 @@ use crate::{Storage, VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt
 
 pub const NAME: &str = "random";
 
+pub const INDEX: u8 = 3;
+
 pub const FUNCTIONS: [SoftInterruptFunction;1] = [
     SoftInterruptFunction { no:  0, name: "range", arguments: 2, returns: 1, help: "Generate random value in provided value range (start,end)->(res)" }
 ];

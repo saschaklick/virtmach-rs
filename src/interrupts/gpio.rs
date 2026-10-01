@@ -15,6 +15,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "gpio";
 
+pub const INDEX: u8 = 7;
+
 pub const FUNCTIONS: [SoftInterruptFunction;9] = [
     SoftInterruptFunction { no:  0, name: "setup",      arguments: 2, returns: 0, help: "Set the pin mode, 0 input, 1 output, 2 open-drain (pin,mode)->()" },
     SoftInterruptFunction { no:  1, name: "set_pull",   arguments: 2, returns: 0, help: "Set the pull resistor, 0 none, 1 up, 2 down (pin,pull)->()" },

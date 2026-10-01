@@ -2,6 +2,8 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "math";
 
+pub const INDEX: u8 = 0;
+
 pub const FUNCTIONS: [SoftInterruptFunction;11] = [
     SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND (num0,num1)->(res)" },
     SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR (num0,num1)->(res)" },

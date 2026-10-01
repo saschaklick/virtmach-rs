@@ -40,13 +40,15 @@ fn main(){
             .style(Style::UnicodeBlock1x2)
             .ansi_position(1, 1);                    
                                                         
+            // at their INDEX, time is dummy
             let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                &mut interrupts::proc::Interrupt {},
                 &mut interrupts::math::Interrupt {},
+                &mut interrupts::proc::Interrupt {},
                 &mut interrupts::string::Interrupt {},
                 &mut interrupts::random::Interrupt {},
-                &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } },
-                &mut interrupts::trig::Interrupt {}
+                &mut interrupts::dummy::Interrupt {},
+                &mut interrupts::trig::Interrupt {},
+                &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }
             ];                            
 
             loop {
