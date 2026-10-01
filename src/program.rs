@@ -71,12 +71,15 @@ mod tests {
     use crate::{ VirtMach, VMAtom, Runtime, interrupts::SoftInterrupt };
     use super::*;
 
-    /// Bins "hi" and "abc", then reg r0, set #100, reg r1, set #-7, end, atoms in the size of VMAtom
+    /// Bins "hi" and "abc", then reg r0, set #100, reg r1, set #-7, add #1, end, atoms in the size of
+    /// VMAtom. The add needs r1 to still be the active register after the immediate of the set.
     fn program() -> Vec<u8> {
         let mut data = std::vec![ATOM_ID, 2, 2, 0, 5, 0, b'h', b'i', b'a', b'b', b'c', 0x00, 0xf1];
         data.extend_from_slice(&(100 as VMAtom).to_le_bytes());
         data.extend_from_slice(&[0x10, 0xf1]);
         data.extend_from_slice(&(-7 as VMAtom).to_le_bytes());
+        data.push(0xf6);
+        data.extend_from_slice(&(1 as VMAtom).to_le_bytes());
         data.push(0xff);
         data
     }
@@ -102,23 +105,34 @@ mod tests {
         let program = program();
         let mut ram = VirtMach::new();
         ram.load_program(Program { source: 0, id: "ram", data: &program });
-        ram.run(0, &mut []);
+        // limited, so a vm that does not stop fails the test instead of hanging it
+        ram.run(100, &mut []);
 
         let mut wrapped = VirtMach::<Wrapped>::with_storage();
         wrapped.load_program(Program { source: 0, id: "wrapped", data: WrappedBytes(&program) });
         let interrupts: &mut [&mut dyn SoftInterrupt<Wrapped>] = &mut [&mut crate::interrupts::math::Interrupt {}];
-        wrapped.run(0, interrupts);
+        wrapped.run(100, interrupts);
 
         for vm_registers in [ram.registers, wrapped.registers] {
-            assert_eq!(vm_registers[..2], [100, -7]);
+            assert_eq!(vm_registers[..2], [100, -6]);
         }
         assert!(ram.state == Runtime::Stp && wrapped.state == Runtime::Stp);
+        assert!(ram.error == crate::RuntimeError::NoError && wrapped.error == crate::RuntimeError::NoError);
 
         assert_eq!(ram.get_str(0), "hi");
         assert_eq!(ram.get_str(1), "abc");
         let mut buf = [0u8; 2];
         assert_eq!((wrapped.copy_bin(1, &mut buf), buf), (3, *b"ab"));
         assert_eq!((wrapped.bin_len(0), wrapped.has_bin(2)), (2, false));
+    }
+
+    #[test]
+    fn running_past_the_end_stops() {
+        // reg r0 without an end
+        let mut vm = VirtMach::new();
+        vm.load_program(Program { source: 0, id: "open", data: &[ATOM_ID, 0, 0x00] });
+        vm.run(0, &mut []);
+        assert!(vm.state == Runtime::Err && vm.error == crate::RuntimeError::ProgramOutOfBounds);
     }
 
     #[test]

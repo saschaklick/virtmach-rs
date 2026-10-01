@@ -133,6 +133,7 @@ impl <'a, S: Storage> VirtMach <'a, S> {
 
         if self.processor.prog_cnt >= self.code_len {
             self.error = RuntimeError::ProgramOutOfBounds;
+            self.state = Runtime::Err;
             return;
         }            
 
@@ -147,7 +148,7 @@ impl <'a, S: Storage> VirtMach <'a, S> {
             reg = (byte >> 4) & 0x0f;
             if reg == 15 {
                 val = read_atom(&self.program.data, self.code_start + self.processor.prog_cnt);
-                self.processor.prog_cnt += 2;
+                self.processor.prog_cnt += size_of::<VMAtom>();
             }else{
                 val  = self.registers[reg as usize];
             }
