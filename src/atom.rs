@@ -70,7 +70,7 @@ cfg_block! {
                 
                 impl<T> VAtomMut for T where T: BufMut { fn put_atom(&mut self, a:VMAtom) { self.put_i32_ne(a); } }        
             } else {
-                impl VAtom for &[u8] { fn get_atom(&mut self) -> VMAtom { return if self.len() < size_of::<VMAtom>() { VMAtom::MIN } else { let v = (self[0] as u32) + ((self[1] as u32) << 8) + ((self[1] as u32) << 16) + ((self[1] as u32) << 24); if v >= 0x80000000 { -((0xffffffff - v) as VMAtom) - 1 } else { v as VMAtom } } } }
+                impl VAtom for &[u8] { fn get_atom(&mut self) -> VMAtom { return if self.len() < size_of::<VMAtom>() { VMAtom::MIN } else { let v = (self[0] as u32) + ((self[1] as u32) << 8) + ((self[2] as u32) << 16) + ((self[3] as u32) << 24); if v >= 0x80000000 { -((0xffffffff - v) as VMAtom) - 1 } else { v as VMAtom } } } }
 
                 impl VAtomMut for &[u8] { fn put_atom(&mut self, a:VMAtom) { unimplemented!("writing atoms not implement for no_std"); } }
             }
@@ -79,3 +79,17 @@ cfg_block! {
 }
 
 
+
+#[cfg(all(test, not(feature = "std")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_atom_decodes_little_endian() {
+        for v in [0, 1, -1, 0x12, -0x12, VMAtom::MAX, VMAtom::MIN, (0x12345678u32 as i64 >> (32 - VMAtom::BITS)) as VMAtom] {
+            let bytes = v.to_le_bytes();
+            assert_eq!((&bytes[..]).get_atom(), v, "{:#x}", v);
+        }
+        assert_eq!((&[0u8; 0][..]).get_atom(), VMAtom::MIN);
+    }
+}

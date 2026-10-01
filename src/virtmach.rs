@@ -1,14 +1,15 @@
 use core::ops::Neg;
-use core::{slice, str};
+use core::{mem, slice, str};
 
 use crate::{REG_MAX, MEM_SIZE};
 use crate::opcodes::OpCode;
 use crate::processor::Processor;
 
-pub use crate::atom::{ATOM_ID, VMAtom, VMAddr, VAtom};
+pub use crate::atom::{ATOM_ID, VMAtom, VMAddr};
+#[cfg(feature = "alloc")]
 pub use crate::string::{VMStringIndex};
 pub use crate::errors::RuntimeError as RuntimeError;
-pub use crate::program::Program as Program;
+pub use crate::program::{ Program, ProgramData, Storage, Ram };
 pub use crate::writer::Writer as Writer;
 use crate::interrupts::SoftInterrupt;
 
@@ -21,11 +22,14 @@ pub enum Runtime {
     Stp,    
     Err
 }
-pub struct VirtMach <'a> {
+pub struct VirtMach <'a, S: Storage = Ram> {
     pub registers: [VMAtom;REG_MAX],
     pub memory: [VMAtom;MEM_SIZE],
     pub cycle_cnt: usize,
-    pub(crate) program: Program<'a>,    
+    pub(crate) program: Program<'a, S>,    
+    /// where the instructions start in the program data, found once by load_program
+    code_start: usize,
+    code_len: usize,
     pub error: RuntimeError,    
     pub(crate) processor: Processor,
     pub state: Runtime,
@@ -36,12 +40,30 @@ pub struct VirtMach <'a> {
     pub load: (Option<VMAtom>,Option<VMStringIndex>)    
 }
 
-impl <'a> VirtMach <'_> {
-    pub fn new() -> Self {                
+impl VirtMach <'_> {
+    /// A vm for programs in byte slices, see with_storage for other storages
+    pub fn new() -> Self {
+        Self::with_storage()
+    }
+}
+
+/// Reads an atom from the program data, little endian like the compiler writes it
+#[inline(always)]
+pub(crate) fn read_atom<D: ProgramData>(data: &D, pos: usize) -> VMAtom {
+    let mut bytes = [0u8; size_of::<VMAtom>()];
+    for (i, b) in bytes.iter_mut().enumerate() { *b = data.byte(pos + i); }
+    VMAtom::from_le_bytes(bytes)
+}
+
+impl <'a, S: Storage> VirtMach <'a, S> {
+    /// A vm for programs in the storage S, e.g. VirtMach::<Flash>::with_storage()
+    pub fn with_storage() -> Self {
         let res =  Self {
             registers: [0 as VMAtom;REG_MAX],
             memory: [0 as VMAtom;MEM_SIZE],            
-            program: Program::EMPTY,                 
+            program: Program::empty(),                 
+            code_start: 2,
+            code_len: 0,
             error: RuntimeError::NoError,
             cycle_cnt: 0,
             processor: Processor::default(),
@@ -56,14 +78,14 @@ impl <'a> VirtMach <'_> {
         return res;  
     }
 
-    pub fn load_program (&mut self, program: Program) {        
+    pub fn load_program (&mut self, program: Program<'_, S>) {        
         if program.data.len() == 0 {
-            self.program = Program::EMPTY;
+            self.set_program(Program::empty());
             return;
         }
 
-        if program.data[0] != ATOM_ID {
-            self.program = Program::ERROR;
+        if program.data.byte(0) != ATOM_ID {
+            self.set_program(Program::error());
             self.error = RuntimeError::MismatchedAtomType;
             return;
         }
@@ -71,7 +93,10 @@ impl <'a> VirtMach <'_> {
         self.reset();  
         self.program.source = program.source;
         self.program.id = unsafe { str::from_utf8_unchecked(slice::from_raw_parts(program.id.as_ptr(), program.id.len())) };
-        self.program.data = unsafe { slice::from_raw_parts(program.data.as_ptr(), program.data.len()) };        
+        // like the id, the data is taken over without its lifetime, it must stay valid while it is loaded
+        self.program.data = unsafe { mem::transmute_copy::<S::Data<'_>, S::Data<'a>>(&program.data) };
+        self.code_start = self.program.get_code_start();
+        self.code_len = self.program.get_code_len();
         self.processor = Processor::default();         
         self.state = Runtime::Hlt;             
     }    
@@ -95,19 +120,23 @@ impl <'a> VirtMach <'_> {
         }
     }
 
-    pub fn step (&mut self, interrupts: &mut [&'_ mut dyn SoftInterrupt]) {        
+    fn set_program(&mut self, program: Program<'a, S>) {
+        self.program = program;
+        self.code_start = self.program.get_code_start();
+        self.code_len = self.program.get_code_len();
+    }
+
+    pub fn step (&mut self, interrupts: &mut [&'_ mut dyn SoftInterrupt<S>]) {        
         if self.state != Runtime::Run {
             return;
         }
 
-        let instructions = self.program.get_instructions();    
-
-        if self.processor.prog_cnt >= instructions.len() {
+        if self.processor.prog_cnt >= self.code_len {
             self.error = RuntimeError::ProgramOutOfBounds;
             return;
         }            
 
-        let byte = instructions[self.processor.prog_cnt];
+        let byte = self.program.data.byte(self.code_start + self.processor.prog_cnt);
         let op = byte & 0x0f;
         let reg:u8;
         let inst_pos = self.processor.prog_cnt;
@@ -117,7 +146,7 @@ impl <'a> VirtMach <'_> {
         if op < 0x0f {
             reg = (byte >> 4) & 0x0f;
             if reg == 15 {
-                val = instructions[self.processor.prog_cnt .. self.processor.prog_cnt + size_of::<VMAtom>()].as_ref().get_atom();
+                val = read_atom(&self.program.data, self.code_start + self.processor.prog_cnt);
                 self.processor.prog_cnt += 2;
             }else{
                 val  = self.registers[reg as usize];
@@ -127,7 +156,7 @@ impl <'a> VirtMach <'_> {
             val = 0 as VMAtom;
         }
 
-        fn add(vm: &mut VirtMach, a: VMAtom, b: VMAtom) -> VMAtom {            
+        fn add<S: Storage>(vm: &mut VirtMach<S>, a: VMAtom, b: VMAtom) -> VMAtom {            
             let add_res = a.overflowing_add(b);
             vm.processor.zero = add_res.0 == 0;                        
             vm.processor.sign = add_res.0 < 0;
@@ -135,7 +164,7 @@ impl <'a> VirtMach <'_> {
             return add_res.0;
         }
 
-        fn sub(vm: &mut VirtMach, a: VMAtom, b: VMAtom) -> VMAtom {            
+        fn sub<S: Storage>(vm: &mut VirtMach<S>, a: VMAtom, b: VMAtom) -> VMAtom {            
             let sub_res = a.overflowing_sub(b);
             vm.processor.zero = sub_res.0 == 0;                        
             vm.processor.sign = sub_res.0 < 0;
@@ -143,7 +172,7 @@ impl <'a> VirtMach <'_> {
             return sub_res.0;
         }
 
-        fn jmpchk(vm: &mut VirtMach, offset: VMAtom, is_cal: bool) {            
+        fn jmpchk<S: Storage>(vm: &mut VirtMach<S>, offset: VMAtom, is_cal: bool) {            
             match VMAddr::try_from(vm.processor.prog_cnt) {
                 Ok(prog_cnt) => {
                     let res = prog_cnt.overflowing_add(offset as VMAddr);
@@ -159,7 +188,7 @@ impl <'a> VirtMach <'_> {
             
         }
 
-        fn memchk(vm: &mut VirtMach, addr: VMAtom) -> bool {
+        fn memchk<S: Storage>(vm: &mut VirtMach<S>, addr: VMAtom) -> bool {
             if addr < 0 as VMAtom || addr >= MEM_SIZE as VMAtom { vm.error = RuntimeError::MemoryOutOfBounds; return false; }
             if addr >= vm.processor.stack_ptr as VMAtom { vm.error = RuntimeError::HeapCrash; }
             return true;
@@ -221,11 +250,11 @@ impl <'a> VirtMach <'_> {
     }
 
     pub fn unload(&mut self) {
-        self.program = Program::EMPTY;
+        self.set_program(Program::empty());
         self.reset();        
     }
 
-    pub fn run (&mut self, max_ops: usize, interrupts: &mut [& mut dyn SoftInterrupt]) {
+    pub fn run (&mut self, max_ops: usize, interrupts: &mut [& mut dyn SoftInterrupt<S>]) {
         let mut op_cnt = 0;
 
         if self.state == Runtime::Hlt {

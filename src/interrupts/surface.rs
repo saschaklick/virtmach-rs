@@ -1,4 +1,4 @@
-use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "surface";
 
@@ -21,7 +21,7 @@ pub static FUNCTIONS: [SoftInterruptFunction;13] = [
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -31,7 +31,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
             0 => { let _color = vm.stack_pop(); vm.error = RuntimeError::UnimplementedInterruptFunc; }

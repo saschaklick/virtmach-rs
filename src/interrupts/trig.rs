@@ -1,4 +1,4 @@
-use crate::{RuntimeError, VirtMach, VMAtom, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, VMAtom, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "trig";
 
@@ -139,7 +139,7 @@ fn scale(value: VMAtom, factor: VMAtom) -> (VMAtom, bool) {
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -149,7 +149,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS
     }
 
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         let res = match op {
             0 => { let angle = vm.stack_pop(); (from_fixed(sin_cos(to_turn(angle)).0), false) }

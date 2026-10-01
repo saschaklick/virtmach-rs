@@ -15,7 +15,7 @@
 //! cell, starting at address. Strings are string indices like in the string interrupt, start is
 //! 0-based.
 
-use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "uart";
 
@@ -33,7 +33,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;9] = [
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -43,7 +43,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
             0 => { let (_port, _baud, _config) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }

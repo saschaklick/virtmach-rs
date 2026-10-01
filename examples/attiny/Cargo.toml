@@ -3,10 +3,13 @@ name = "virtmach-attiny85"
 version = "0.1.0"
 authors = ["Sascha Klick <rustdev@sklick.de>", "Eric Wood <eric@ericwood.org>"]
 edition = "2018"
+resolver = "2"
 
 [features]
 default = ["rt"]
 rt = ["attiny-hal/rt"]
+# adds the .mmcu section that makes simavr trace PB1 into blink.vcd, see simulate.sh
+simavr = []
 
 [dependencies]
 panic-halt = "1.0.0"
@@ -30,3 +33,7 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 debug-assertions = false
+[dependencies.virtmach]
+path = "../.."
+default-features = false
+features = ["intmath_nopow", "intmath_nosqr"]

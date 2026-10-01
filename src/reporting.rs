@@ -1,14 +1,13 @@
 use core::fmt::Write;
-use crate::{RuntimeError, VirtMach, Writer, VMAtom, MEM_SIZE, REG_MAX};
+use crate::{RuntimeError, VirtMach, Writer, VMAtom, MEM_SIZE, REG_MAX, ProgramData, Storage};
 
-impl VirtMach <'_> {
+impl <S: Storage> VirtMach <'_, S> {
     pub fn log(&self) {
         if self.program.data.len() == 0 {
             log::error!("[{:5?}] no program loaded", self.state);
             return;
         }
-        let instructions = self.program.get_instructions();
-        if self.processor.prog_cnt > instructions.len() {
+        if self.processor.prog_cnt > self.program.get_code_len() {
             log::error!("[{:5?}] program out of bounds", self.state);
             return;
         }
@@ -21,7 +20,7 @@ impl VirtMach <'_> {
     }
 }
 
-impl VirtMach <'_> {
+impl <S: Storage> VirtMach <'_, S> {
     pub fn inspect<W: Write>(&self, mut writer: W) -> core::fmt::Result {
         writer.write_str("state,error,prg,pc,sp,reg,zero,carry,sign,atom\r\n").expect("");
         writer.write_fmt(format_args!(
@@ -37,7 +36,7 @@ impl VirtMach <'_> {
 
     pub fn disassemble<W: Write>(&self, mut writer: W) -> core::fmt::Result {
         let mut i = 0;
-        while i < self.program.get_instructions().len() {        
+        while i < self.program.get_code_len() {        
             writer.write_fmt(format_args!("{} ", i)).expect("");
             i = VirtMach::decompile(&self.program, i, &mut writer);
             writer.write_str("\r\n").expect("");
@@ -104,7 +103,7 @@ impl VirtMach <'_> {
                         let _ = writer.write_str("\n");
                     }
                     _ => {
-                        if pos < self.program.get_instructions().len() {
+                        if pos < self.program.get_code_len() {
                             let _ = writer.write_fmt(format_args!("{}{:4}:", if i == 1 { ">" } else { " " }, pos));                    
                             let mut buf = [0u8;16];
                             let mut op = Writer::from_buffer(&mut buf);

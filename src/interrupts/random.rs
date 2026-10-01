@@ -1,4 +1,4 @@
-use crate::{VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, VirtMach, VMAtom, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "random";
 
@@ -12,7 +12,7 @@ static mut SEED: u64 = 0;
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -22,7 +22,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS
     }
     
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();        
         let a = vm.stack_pop();
         let b = vm.stack_pop();

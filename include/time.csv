@@ -1,0 +1,5 @@
+name,index,arguments,returns,description
+wait_for,0,2,0,"Wait the interval from now (seconds,microseconds)->()"
+wait_until,1,2,1,"Wait until the interval passed since the last wait_until, 1 if it waited, 0 if it was too short (seconds,microseconds)->(waited)"
+get_time,2,0,4,"Time of day, hours 0-23 ()->(hours,minutes,seconds,ms)"
+get_date,3,0,3,"Date, month 1-12 and day 1-31 ()->(year,month,day)"

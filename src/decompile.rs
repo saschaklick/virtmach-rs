@@ -1,23 +1,23 @@
 use core::fmt::Write;
 use core::mem::size_of;
 
-use crate::{VirtMach, VMAtom, VAtom, opcodes::OpCode, Program, Writer};
+use crate::{VirtMach, VMAtom, opcodes::OpCode, Program, ProgramData, Storage, Writer, virtmach::read_atom};
 
-impl VirtMach <'_> {
-    pub fn decompile <W: Write> (program: &Program, position: usize, mut writer: W) -> usize {
+impl <S: Storage> VirtMach <'_, S> {
+    pub fn decompile <W: Write> (program: &Program<S>, position: usize, mut writer: W) -> usize {
         let mut ret = 1;
         
-        let instructions = program.get_instructions();   
+        let (code_start, code_len) = (program.get_code_start(), program.get_code_len());
         
-        if position >= instructions.len() as usize {
+        if position >= code_len {
             let _ = writer.write_str("?");
             return 0;
         }
                   
-        let byte = instructions[position];
+        let byte = program.data.byte(code_start + position);
         
         let reg = byte >> 4;
-        let val = if position + 1 + size_of::<VMAtom>() > instructions.len() { 0 } else { instructions[position + 1 ..position + 1 + size_of::<VMAtom>()].as_ref().get_atom() };
+        let val = if position + 1 + size_of::<VMAtom>() > code_len { 0 } else { read_atom(&program.data, code_start + position + 1) };
 
         let mut buf = [0u8;16];
         let mut arg= Writer::from_buffer(&mut buf);

@@ -16,7 +16,7 @@ path = "src/lib.rs"
 
 [features]
 default = []
-std = []
+std = ["dep:bytes"]
 alloc = []
 random = ["nostd_structs"]
 compile = ["random", "std", "csv", "dep:num-literal-traits"]
@@ -24,11 +24,14 @@ basic = ["compile", "dep:pest", "dep:pest_derive"]
 i8 = []
 i16 = []
 i32 = []
+# leave out math.pow and math.sqr to save flash, calls set RuntimeError::UnimplementedInterruptFunc
+intmath_nopow = []
+intmath_nosqr = []
 
 [dependencies]
 cfg_block = "0.2.0"
 log = { version = "0.4.27"  }
-bytes = { version = "1.10.1", default-features = false }
+bytes = { version = "1.10.1", default-features = false, optional = true }
 nostd_structs = { version = "0.5.0", optional = true }
 num-literal-traits = { version = "0.1.3", optional = true }
 csv = { version = "1.4.0", optional = true }

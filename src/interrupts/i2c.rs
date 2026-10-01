@@ -15,7 +15,7 @@
 //! like in the string interrupt, start is 0-based. write_read_mem writes and then reads with a
 //! repeated start in between, as needed to read registers of most devices.
 
-use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "i2c";
 
@@ -35,7 +35,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;11] = [
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -45,7 +45,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
             0 => { let (_port, _speed) = (vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }

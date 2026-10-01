@@ -1,3 +1,4 @@
 *.bin
+!examples/attiny/blink.bin
 Cargo.lock
 target

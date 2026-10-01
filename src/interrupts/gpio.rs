@@ -11,7 +11,7 @@
 //! pull: 0 none, 1 pull-up, 2 pull-down
 //! level: 0 low, anything else high
 
-use crate::{RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "gpio";
 
@@ -29,7 +29,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;9] = [
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -39,7 +39,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, vm: &mut VirtMach) {
+    fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
             0 => { let (_pin, _mode) = (vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }

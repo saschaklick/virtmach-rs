@@ -1,4 +1,4 @@
-use crate::{VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
 
 pub const NAME: &str = "dummy";
 
@@ -6,7 +6,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;0] = [];
 
 pub struct Interrupt {}
 
-impl SoftInterrupt for Interrupt {
+impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn name(&self) -> &str {
         return NAME;
     }
@@ -16,7 +16,7 @@ impl SoftInterrupt for Interrupt {
         return &FUNCTIONS;
     }
 
-    fn call(&mut self, _vm: &mut VirtMach) {        
+    fn call(&mut self, _vm: &mut VirtMach<S>) {        
     }
 
 }
