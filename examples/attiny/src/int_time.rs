@@ -7,28 +7,29 @@
 use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, time } };
 use crate::clock::{ Clock, Schedule, US_PER_COUNT };
 
-pub struct Time<'a> {
+pub struct IntTime<'a> {
     pub clock: &'a Clock,
     /// for wait_until, the first interval counts from the start of the program
     pub schedule: Schedule
 }
 
-/// seconds * 1000000 + microseconds in clock counts, rounded, None if negative or too long
-fn interval(seconds: VMAtom, microseconds: VMAtom) -> Option<u32> {
-    if seconds < 0 || microseconds < 0 {
+/// seconds * 1000 + milliseconds in clock counts, rounded, None if negative or too long
+fn interval(seconds: VMAtom, milliseconds: VMAtom) -> Option<u32> {
+    if seconds < 0 || milliseconds < 0 {
         return None;
     }
-    let (seconds, microseconds) = (seconds as u32, (microseconds as u32 + US_PER_COUNT / 2) / US_PER_COUNT);
+    let (seconds, milliseconds) = (seconds as u32, milliseconds as u32);
     // up to 16 bit atoms the counts fit into u32 without checks, only i32 atoms can overflow it
     let counts = if VMAtom::BITS <= 16 {
-        seconds * (1_000_000 / US_PER_COUNT) + microseconds
+        seconds * (1_000_000 / US_PER_COUNT) + (milliseconds * 1000 + US_PER_COUNT / 2) / US_PER_COUNT
     } else {
-        seconds.checked_mul(1_000_000 / US_PER_COUNT)?.checked_add(microseconds)?
+        let milliseconds = milliseconds.checked_mul(1000)?.checked_add(US_PER_COUNT / 2)? / US_PER_COUNT;
+        seconds.checked_mul(1_000_000 / US_PER_COUNT)?.checked_add(milliseconds)?
     };
     if counts > i32::MAX as u32 { None } else { Some(counts) }
 }
 
-impl <S: Storage> SoftInterrupt<S> for Time<'_> {
+impl <S: Storage> SoftInterrupt<S> for IntTime<'_> {
     fn name(&self) -> &str {
         return time::NAME;
     }
@@ -38,8 +39,8 @@ impl <S: Storage> SoftInterrupt<S> for Time<'_> {
         match op {
             // wait_for and wait_until share the arguments and their check
             0 | 1 => {
-                let (seconds, microseconds) = (vm.stack_pop(), vm.stack_pop());
-                let waited = match interval(seconds, microseconds) {
+                let (seconds, milliseconds) = (vm.stack_pop(), vm.stack_pop());
+                let waited = match interval(seconds, milliseconds) {
                     Some(counts) if op == 0 => { self.clock.wait_until(self.clock.now().wrapping_add(counts)); return; }
                     Some(counts) => self.schedule.wait(self.clock, counts),
                     None => { vm.error = RuntimeError::InterruptError; false }

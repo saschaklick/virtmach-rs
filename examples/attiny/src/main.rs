@@ -40,9 +40,9 @@ use clock::{ Clock as Timer1Clock, Schedule };
 mod clock;
 mod flash;
 #[cfg(feature = "gpio")]
-mod gpio;
+mod int_gpio;
 #[cfg(feature = "time")]
-mod time;
+mod int_time;
 #[cfg(feature = "simavr")]
 mod simavr;
 
@@ -73,13 +73,13 @@ fn main() -> ! {
         dummy::Interrupt {},
         dummy::Interrupt {},
         #[cfg(feature = "time")]
-        time::Time { clock: &clock, schedule: Schedule::new(&clock) },
+        int_time::IntTime { clock: &clock, schedule: Schedule::new(&clock) },
         #[cfg(not(feature = "time"))]
         dummy::Interrupt {},
         dummy::Interrupt {},
         dummy::Interrupt {},
         #[cfg(feature ="gpio")]
-        gpio::Gpio { port: dp.PORTB },
+        int_gpio::IntGpio { port: dp.PORTB },
         #[cfg(not(feature ="gpio"))]
         dummy::Interrupt {},        
         #[cfg(feature ="uart")]
