@@ -39,6 +39,19 @@ impl ProgramData for FlashBytes {
     }
 }
 
+/// Entry index of a table of bytes in .progmem.data, 0 past its end
+#[cfg_attr(not(feature = "pwm"), allow(dead_code))]
+pub fn read_u8<const N: usize>(table: &'static [u8; N], index: usize) -> u8 {
+    FlashBytes::of(table).byte(index)
+}
+
+/// Entry index of a table of u16 in .progmem.data, 0 past its end
+#[cfg_attr(not(feature = "pwm"), allow(dead_code))]
+pub fn read_u16<const N: usize>(table: &'static [u16; N], index: usize) -> u16 {
+    let bytes = FlashBytes { addr: table.as_ptr() as u16, len: 2 * N as u16 };
+    u16::from_le_bytes([bytes.byte(2 * index), bytes.byte(2 * index + 1)])
+}
+
 /// Storage of programs in flash
 pub struct Flash;
 

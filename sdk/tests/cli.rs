@@ -61,7 +61,7 @@ fn compile(bin: &str, source: &str, interrupts: &[&str], dir: &Path, name: &str)
 #[test]
 fn compiler_assembles_listing() {
     let dir = tmp_dir("compiler_assembles_listing");
-    let bin = compile(COMPILER, &program("count.txt"), &["proc", "math"], &dir, "count");
+    let bin = compile(COMPILER, &program("ci/count.txt"), &["proc", "math"], &dir, "count");
     let data = fs::read(&bin).unwrap();
     assert!(data.len() > 2, "{} bytes", data.len());
 }
@@ -70,7 +70,7 @@ fn compiler_assembles_listing() {
 fn compiler_disassembles_when_verbose() {
     let dir = tmp_dir("compiler_disassembles_when_verbose");
     let out_file = dir.join("count.bin").display().to_string();
-    let out = run(COMPILER, &[&program("count.txt"), "proc", "math", "-o", &out_file], &root());
+    let out = run(COMPILER, &[&program("ci/count.txt"), "proc", "math", "-o", &out_file], &root());
     assert_ok(&out);
     let text = stdout(&out);
     assert!(text.contains("Program \"count\""), "{}", text);
@@ -82,13 +82,13 @@ fn compiler_default_output_and_repo_include() {
     // run somewhere without ./include/, the csv files come from the repository's include/ and the
     // binary is named after the source
     let dir = tmp_dir("compiler_default_output_and_repo_include");
-    let out = run(COMPILER, &[&program("count.txt"), "proc", "math", "-v", "0"], &dir);
+    let out = run(COMPILER, &[&program("ci/count.txt"), "proc", "math", "-v", "0"], &dir);
     assert_ok(&out);
     assert!(dir.join("count.bin").is_file());
 
     // cargo run inside sdk/
     let pong = dir.join("pong.bin").display().to_string();
-    let out = run(COMPILER, &["../examples/programs/pong.bas", "proc", "math", "string", "random", "surface", "-o", &pong, "-v", "0"], &root().join("sdk"));
+    let out = run(COMPILER, &["../examples/programs/gfx/pong.bas", "proc", "math", "string", "random", "surface", "-o", &pong, "-v", "0"], &root().join("sdk"));
     assert_ok(&out);
     assert!(Path::new(&pong).is_file());
 }
@@ -112,8 +112,8 @@ fn compiler_include_dir() {
 #[test]
 fn compiler_accepts_basic() {
     let dir = tmp_dir("compiler_accepts_basic");
-    let from_compiler = compile(COMPILER, &program("sum.bas"), &PLAIN, &dir, "compiler");
-    let from_basic = compile(BASIC, &program("sum.bas"), &PLAIN, &dir, "basic");
+    let from_compiler = compile(COMPILER, &program("ci/sum.bas"), &PLAIN, &dir, "compiler");
+    let from_basic = compile(BASIC, &program("ci/sum.bas"), &PLAIN, &dir, "basic");
     assert_eq!(fs::read(from_compiler).unwrap(), fs::read(from_basic).unwrap());
 }
 
@@ -122,7 +122,7 @@ fn compiler_errors() {
     let dir = tmp_dir("compiler_errors");
     let out_file = dir.join("out.bin").display().to_string();
 
-    let out = run(COMPILER, &[&program("count.txt"), "proc", "nosuch", "-o", &out_file], &root());
+    let out = run(COMPILER, &[&program("ci/count.txt"), "proc", "nosuch", "-o", &out_file], &root());
     assert_fails(&out, "could not find nosuch.csv");
 
     let bad = dir.join("bad.txt");
@@ -141,7 +141,7 @@ fn basic_writes_listing() {
     let dir = tmp_dir("basic_writes_listing");
     let listing = dir.join("sum.txt").display().to_string();
     let out_file = dir.join("sum.bin").display().to_string();
-    let out = run(BASIC, &[&program("sum.bas"), "proc", "math", "random", "-o", &out_file, "-l", &listing], &root());
+    let out = run(BASIC, &[&program("ci/sum.bas"), "proc", "math", "random", "-o", &out_file, "-l", &listing], &root());
     assert_ok(&out);
     let text = stdout(&out);
     assert!(text.contains(&format!("[OK] wrote listing to {}", listing)), "{}", text);
@@ -165,7 +165,7 @@ fn basic_errors() {
     let out = run(BASIC, &[&bad.display().to_string(), "proc", "-o", &out_file], &root());
     assert_fails(&out, "line 2: syntax error");
 
-    let out = run(BASIC, &[&program("strings.bas"), "proc", "-o", &out_file], &root());
+    let out = run(BASIC, &[&program("ci/strings.bas"), "proc", "-o", &out_file], &root());
     assert_fails(&out, "surface");
 
     let out = run(BASIC, &[&dir.join("missing.bas").display().to_string(), "proc", "-o", &out_file], &root());
@@ -176,7 +176,7 @@ fn basic_errors() {
 #[test]
 fn runtime_runs_to_end() {
     let dir = tmp_dir("runtime_runs_to_end");
-    let bin = compile(BASIC, &program("sum.bas"), &PLAIN, &dir, "sum");
+    let bin = compile(BASIC, &program("ci/sum.bas"), &PLAIN, &dir, "sum");
     let out = run(RUNTIME, &[&bin, "-v", "0"], &root());
     assert_ok(&out);
     assert!(stdout(&out).contains(&format!("loaded binary {}", bin)), "{}", stdout(&out));
@@ -185,7 +185,7 @@ fn runtime_runs_to_end() {
 #[test]
 fn runtime_term_surface() {
     let dir = tmp_dir("runtime_term_surface");
-    let bin = compile(BASIC, &program("strings.bas"), &TERM, &dir, "strings");
+    let bin = compile(BASIC, &program("ci/strings.bas"), &TERM, &dir, "strings");
     let out = run(RUNTIME, &[&bin, "-s", "term", "-v", "0"], &root());
     assert_ok(&out);
 }
@@ -194,8 +194,8 @@ fn runtime_term_surface() {
 fn interrupt_order_does_not_matter() {
     // built-in interrupts are numbered by their INDEX, not by their position
     let dir = tmp_dir("interrupt_order_does_not_matter");
-    let forward = compile(BASIC, &program("dice.bas"), &["proc", "math", "random"], &dir, "forward");
-    let backward = compile(BASIC, &program("dice.bas"), &["random", "math", "proc"], &dir, "backward");
+    let forward = compile(BASIC, &program("ci/dice.bas"), &["proc", "math", "random"], &dir, "forward");
+    let backward = compile(BASIC, &program("ci/dice.bas"), &["random", "math", "proc"], &dir, "backward");
     assert_eq!(fs::read(forward).unwrap(), fs::read(backward).unwrap());
 }
 

@@ -12,10 +12,11 @@ pub mod gpio;
 pub mod uart;
 pub mod i2c;
 pub mod time;
+pub mod pwm;
 
 /// Built-in interrupts have fixed numbers, their INDEX, so programs compiled with any selection of
 /// them run on every runtime that places them there. Unused numbers are filled with dummy.
-pub const BUILTIN_SLOTS: u8 = 10;
+pub const BUILTIN_SLOTS: u8 = 11;
 
 /// Interrupt numbers are 4 bits in the INT instruction
 pub const MAX_SLOTS: u8 = 16;
@@ -34,6 +35,7 @@ pub fn builtin_index(name: &str) -> Option<u8> {
         n if n == gpio::NAME => Some(gpio::INDEX),
         n if n == uart::NAME => Some(uart::INDEX),
         n if n == i2c::NAME => Some(i2c::INDEX),
+        n if n == pwm::NAME => Some(pwm::INDEX),
         _ => None
     }
 }
@@ -103,9 +105,9 @@ mod tests {
         assert_eq!(interrupt_numbers(&["proc", "math", "surface"]), Ok(std::vec![1, 0, 6]));
         assert_eq!(interrupt_numbers(&["math", "proc", "surface"]), Ok(std::vec![0, 1, 6]));
         // not built in: after the built-in numbers in the given order
-        assert_eq!(interrupt_numbers(&["joystick", "math", "sound"]), Ok(std::vec![10, 0, 11]));
+        assert_eq!(interrupt_numbers(&["joystick", "math", "sound"]), Ok(std::vec![11, 0, 12]));
         assert!(interrupt_numbers(&["math", "math"]).is_err());
-        assert!(interrupt_numbers(&["a", "b", "c", "d", "e", "f", "g"]).is_err());
+        assert!(interrupt_numbers(&["a", "b", "c", "d", "e", "f"]).is_err());
         assert_eq!(builtin_index(dummy::NAME), None);
     }
 }

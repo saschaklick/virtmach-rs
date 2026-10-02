@@ -12,7 +12,7 @@ Program "compiled" (39b):
 ...
 ```
 
-Compiles file `programs/count.txt` and prints out the disassembled binary.
+Compiles file `programs/ci/count.txt` and prints out the disassembled binary.
 
 ```
 cargo run --example run --features compile
@@ -27,10 +27,10 @@ REGS@@@|      1|      0|      0|
 ...
 ```
 
-Compiles file `programs/count.txt` and continuously runs it at 250ms per instruction.
+Compiles file `programs/ci/count.txt` and continuously runs it at 250ms per instruction.
 
 ```
-cargo run --example run --features basic -- examples/programs/sum.bas 10
+cargo run --example run --features basic -- examples/programs/ci/sum.bas 10
 ```
 
 Runs another listing or a `.bas` program. The optional second argument sets the milliseconds per instruction. For BASIC programs, the variable values are printed to the right of the dashboard. Only the **proc**, **math**, **random** and **trig** interrupts are available here.
@@ -51,7 +51,7 @@ cargo run --example surface_term --features compile
 ...
 ```
 
-Compiles file `programs/starfield.txt` and continuously runs it at 30 frames-per-second.
+Compiles file `programs/gfx/starfield.txt` and continuously runs it at 30 frames-per-second.
 
 Uses the **surface** interrupt defined in `int_surface_term.rs` to draw to a bitplane framebuffer, which is then printed to the terminal.
 
@@ -61,7 +61,7 @@ cargo run --example surface_sdl2 --features compile
 
 ![surface_sdl2 example output](surface_sdl2.png)
 
-Compiles file `programs/primitives.txt` and continuously runs it at 30 frames-per-second.
+Compiles file `programs/gfx/primitives.txt` and continuously runs it at 30 frames-per-second.
 
 Uses the **surface** interrupt defined in `int_surface_sdl2.rs` to draw to a window.
 
@@ -70,10 +70,10 @@ Uses the **surface** interrupt defined in `int_surface_sdl2.rs` to draw to a win
 Every example takes an optional file as its first argument, either a listing or a BASIC program. With the `basic` feature, a file whose first non-empty line is a `REM` statement (optionally numbered, like `10 REM`) is compiled as BASIC, and anything else is compiled as a listing. BASIC programs show their variable values next to the dashboard. `compile` lists where each variable is kept instead.
 
 ```
-cargo run --example compile --features basic -- examples/programs/gcd.bas
-cargo run --example surface_term --features basic -- examples/programs/bounce.bas
-cargo run --example surface_sdl2 --features basic -- examples/programs/bounce.bas
-cargo run --example surface_term --features basic -- examples/programs/ellipse.bas
+cargo run --example compile --features basic -- examples/programs/ci/gcd.bas
+cargo run --example surface_term --features basic -- examples/programs/gfx/bounce.bas
+cargo run --example surface_sdl2 --features basic -- examples/programs/gfx/bounce.bas
+cargo run --example surface_term --features basic -- examples/programs/gfx/ellipse.bas
 ```
 
 `run` only provides the **proc**, **math**, **random** and **trig** interrupts. The other examples also provide **string** and **surface**, with **trig** last.
@@ -106,7 +106,7 @@ Located in the `programs` directory.
 With the `basic` feature, `VirtMach::compile` and `VirtMach::compile_owned` also accept BASIC programs, so the SDK's `compiler` compiles them too. BASIC is detected by a first line starting with `REM`. `sdk/src/bin/basic.rs` is a BASIC-only front end that can also write the generated listing (`-l`) and prints where each variable is kept. It compiles into a virtmach listing and then into a binary. It takes the same interrupt list as `compiler`: the order sets the interrupt numbers, and each interrupt's functions are checked against the `.csv` file with the same name. Both tools look for that file next to the compiled source first, then in `./include/`, then in each directory given with `-I` (repeatable), in order, and last in the repository's `include/`, where its CSV files are. So they are found from any working directory. Use the runtime's order:
 
 ```
-cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/programs/bounce.bas proc math random surface -l bounce.txt
+cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/programs/gfx/bounce.bas proc math random surface -l bounce.txt
 ```
 
 `-l` writes the generated listing, and `-v 2` also prints it. Without a print interrupt, results stay in registers and memory. The compiler prints which register or memory cell each variable uses.

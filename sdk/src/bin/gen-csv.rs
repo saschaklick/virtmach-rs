@@ -37,5 +37,6 @@ fn main() -> Result<(), String> {
     write(&dir, interrupts::uart::NAME, &interrupts::uart::FUNCTIONS)?;
     write(&dir, interrupts::i2c::NAME, &interrupts::i2c::FUNCTIONS)?;
     write(&dir, interrupts::time::NAME, &interrupts::time::FUNCTIONS)?;
+    write(&dir, interrupts::pwm::NAME, &interrupts::pwm::FUNCTIONS)?;
     Ok(())
 }

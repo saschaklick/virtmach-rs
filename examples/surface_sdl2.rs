@@ -23,10 +23,15 @@ fn main() -> Result<(), String> {
         (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
         (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
         (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
+        (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
+        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice()),
+        (interrupts::gpio::NAME, interrupts::gpio::FUNCTIONS.as_slice()),
+        (interrupts::uart::NAME, interrupts::uart::FUNCTIONS.as_slice()),
+        (interrupts::i2c::NAME, interrupts::i2c::FUNCTIONS.as_slice()),
+        (interrupts::pwm::NAME, interrupts::pwm::FUNCTIONS.as_slice())
     ].to_vec();
 
-    let Some(source) = helpers::load_source("examples/programs/primitives.txt", &tables) else { return Ok(()) };
+    let Some(source) = helpers::load_source("examples/programs/gfx/primitives.txt", &tables) else { return Ok(()) };
     
     match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
         Ok(res) => {                    
@@ -58,6 +63,9 @@ fn main() -> Result<(), String> {
 
             print!("\x1b[2J");
 
+            let mut time = helpers::SimTime::default();
+            let mut hw = helpers::SimPeripherals::default();
+
             'running: loop {
                 for event in event_pump.poll_iter() {
                     match event {
@@ -70,28 +78,36 @@ fn main() -> Result<(), String> {
                     }
                 }                        
 
-                // at their INDEX, time is dummy
+                // at their INDEX
+                let ready = time.ready();
                 let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
                     &mut interrupts::math::Interrupt {},
                     &mut interrupts::proc::Interrupt {},
                     &mut interrupts::string::Interrupt {},
                     &mut interrupts::random::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
+                    &mut time,
                     &mut interrupts::trig::Interrupt {},
-                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
+                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] },
+                    &mut hw.gpio,
+                    &mut hw.uart,
+                    &mut hw.i2c,
+                    &mut hw.pwm
                 ];                            
                 
-                vm.run(4096, interrupts);
+                if ready { vm.run(4096, interrupts); }
 
+                // not while a wait keeps the vm paused, nothing new was drawn
                 match vm.state {
                     virtmach::Runtime::Run => {}
-                    _ => { canvas.present(); }
+                    _ if ready => { canvas.present(); }
+                    _ => {}
                 }
                 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
                 print!("\x1b[H{}", dashboard);
                 helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, 1);
+                helpers::print_hardware_report(&hw, 1, helpers::report_column(&dashboard, &source.variables, 1));
                 
                 thread::sleep(time::Duration::from_millis(1000 / 15))
             }                    

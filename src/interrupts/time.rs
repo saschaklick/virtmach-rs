@@ -4,8 +4,9 @@
 //! return value and sets RuntimeError::UnimplementedInterruptFunc. Copy this into the firmware
 //! and replace the cases with calls into the timer and clock of the target.
 //!
-//! An interval is seconds * 1000000 + microseconds, microseconds is not limited to 999999 but
-//! only goes up to VMAtom::MAX, 32767 with 16 bit atoms. Negative values are an InterruptError.
+//! An interval is seconds * 1000 + milliseconds, milliseconds is not limited to 999 but goes up
+//! to VMAtom::MAX, 32767 with 16 bit atoms and 127 with 8 bit atoms. Negative values are an
+//! InterruptError.
 //!
 //! wait_for waits the interval from the moment it is called, so the time the program spent before
 //! adds to the period of a loop. wait_until waits until the interval has passed since the time the
@@ -30,8 +31,8 @@ pub const NAME: &str = "time";
 pub const INDEX: u8 = 4;
 
 pub const FUNCTIONS: [SoftInterruptFunction;4] = [
-    SoftInterruptFunction { no:  0, name: "wait_for",   arguments: 2, returns: 0, help: "Wait the interval from now (seconds,microseconds)->()" },
-    SoftInterruptFunction { no:  1, name: "wait_until", arguments: 2, returns: 1, help: "Wait until the interval passed since the last wait_until, 1 if it waited, 0 if it was too short (seconds,microseconds)->(waited)" },
+    SoftInterruptFunction { no:  0, name: "wait_for",   arguments: 2, returns: 0, help: "Wait the interval from now (seconds,milliseconds)->()" },
+    SoftInterruptFunction { no:  1, name: "wait_until", arguments: 2, returns: 1, help: "Wait until the interval passed since the last wait_until, 1 if it waited, 0 if it was too short (seconds,milliseconds)->(waited)" },
     SoftInterruptFunction { no:  2, name: "get_time",   arguments: 0, returns: 4, help: "Time of day, hours 0-23 ()->(hours,minutes,seconds,ms)" },
     SoftInterruptFunction { no:  3, name: "get_date",   arguments: 0, returns: 3, help: "Date, month 1-12 and day 1-31 ()->(year,month,day)" }
 ];
@@ -51,8 +52,8 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
     fn call(&mut self, vm: &mut VirtMach<S>) {
         let op = vm.stack_pop();
         match op {
-            0 => { let (_seconds, _microseconds) = (vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
-            1 => { let (_seconds, _microseconds) = (vm.stack_pop(), vm.stack_pop()); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            0 => { let (_seconds, _milliseconds) = (vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            1 => { let (_seconds, _milliseconds) = (vm.stack_pop(), vm.stack_pop()); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             // pushed as hours, minutes, seconds, ms
             2 => { for _ in 0..4 { vm.stack_push(0); } vm.error = RuntimeError::UnimplementedInterruptFunc; }
             // pushed as year, month, day

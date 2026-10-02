@@ -22,10 +22,15 @@ fn main(){
         (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
         (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
         (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
+        (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
+        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice()),
+        (interrupts::gpio::NAME, interrupts::gpio::FUNCTIONS.as_slice()),
+        (interrupts::uart::NAME, interrupts::uart::FUNCTIONS.as_slice()),
+        (interrupts::i2c::NAME, interrupts::i2c::FUNCTIONS.as_slice()),
+        (interrupts::pwm::NAME, interrupts::pwm::FUNCTIONS.as_slice())
     ].to_vec();
 
-    let Some(source) = helpers::load_source("examples/programs/starfield.txt", &tables) else { return };
+    let Some(source) = helpers::load_source("examples/programs/gfx/starfield.txt", &tables) else { return };
 
     match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
         Ok(res) => {                    
@@ -40,19 +45,28 @@ fn main(){
             .style(Style::UnicodeBlock1x2)
             .ansi_position(1, 1);                    
                                                         
-            // at their INDEX, time is dummy
-            let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                &mut interrupts::math::Interrupt {},
-                &mut interrupts::proc::Interrupt {},
-                &mut interrupts::string::Interrupt {},
-                &mut interrupts::random::Interrupt {},
-                &mut interrupts::dummy::Interrupt {},
-                &mut interrupts::trig::Interrupt {},
-                &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }
-            ];                            
+
+            let mut time = helpers::SimTime::default();
+            let mut hw = helpers::SimPeripherals::default();
 
             loop {
-                vm.run(4096, interrupts);
+                // at their INDEX
+                let ready = time.ready();
+                let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
+                    &mut interrupts::math::Interrupt {},
+                    &mut interrupts::proc::Interrupt {},
+                    &mut interrupts::string::Interrupt {},
+                    &mut interrupts::random::Interrupt {},
+                    &mut time,
+                    &mut interrupts::trig::Interrupt {},
+                    &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } },
+                    &mut hw.gpio,
+                    &mut hw.uart,
+                    &mut hw.i2c,
+                    &mut hw.pwm
+                ];
+
+                if ready { vm.run(4096, interrupts); }
 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
@@ -65,6 +79,9 @@ fn main(){
                     
                         for (i, line) in dashboard.lines().enumerate() { print!("\x1b[{};{}H {}\x1b[K", i + 1, W + 3, line); }
                         helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, W + 4);
+                        // below the framed bitmap, 2 pixel rows per line
+                        let row = helpers::report_row(&dashboard, &source.variables, 1).max(H / 2 + 4);
+                        helpers::print_hardware_report(&hw, row, 1);
                     }
                 } else {                                    
                     println!("{}", dashboard);

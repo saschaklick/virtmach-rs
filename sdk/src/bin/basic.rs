@@ -234,10 +234,10 @@ mod tests {
         let mut vm = VirtMach::new();
         vm.load_program(program);
         let (mut p, mut m, mut r, mut s, mut t, mut g) = (proc::Interrupt {}, math::Interrupt {}, random::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {}, trig::Interrupt {});
-        let [mut time, mut gpio, mut uart, mut i2c] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
+        let [mut time, mut gpio, mut uart, mut i2c, mut pwm] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
         {
             // at their INDEX like the runtime, the numbers come from load_interrupts
-            let mut ints: [&mut dyn SoftInterrupt; 10] = [&mut m, &mut p, &mut t, &mut r, &mut time, &mut g, &mut s, &mut gpio, &mut uart, &mut i2c];
+            let mut ints: [&mut dyn SoftInterrupt; 11] = [&mut m, &mut p, &mut t, &mut r, &mut time, &mut g, &mut s, &mut gpio, &mut uart, &mut i2c, &mut pwm];
             for (slot, int) in ints.iter().enumerate() {
                 assert!(virtmach::interrupts::builtin_index(int.name()).is_none_or(|index| index as usize == slot), "{} in slot {}", int.name(), slot);
             }
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn sum() {
-        let run = run_file("sum.bas", 0);
+        let run = run_file("ci/sum.bas", 0);
         assert_finished(&run);
         assert_eq!(run.get("SUM"), 55);
         assert_eq!(run.get("FACT"), 5040);
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn primes() {
-        let run = run_file("primes.bas", 0);
+        let run = run_file("ci/primes.bas", 0);
         assert_finished(&run);
         assert_eq!(run.get("COUNT"), 15);
         assert_eq!(run.get("LAST"), 47);
@@ -281,14 +281,14 @@ mod tests {
 
     #[test]
     fn gcd() {
-        let run = run_file("gcd.bas", 0);
+        let run = run_file("ci/gcd.bas", 0);
         assert_finished(&run);
         assert_eq!((run.get("G1"), run.get("G2"), run.get("G3")), (6, 1, 12));
     }
 
     #[test]
     fn bits() {
-        let run = run_file("bits.bas", 0);
+        let run = run_file("ci/bits.bas", 0);
         assert_finished(&run);
         let expected = [("DIRECT", 0), ("BAND", 48), ("BOR", 252), ("BXOR", 204), ("BNOT", -1), ("MASK", -1),
             ("SHL", 16), ("SHR", 64), ("QUOT", 14), ("REMD", 2), ("PREC", 12), ("PAREN", -20), ("TRUTH", -2), ("BITS", 5)];
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn fib() {
-        let run = run_file("fib.bas", 0);
+        let run = run_file("ci/fib.bas", 0);
         assert_finished(&run);
         assert_eq!(run.array("F"), vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]);
         assert_eq!(run.get("TOTAL"), 232);
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn dice() {
-        let run = run_file("dice.bas", 0);
+        let run = run_file("ci/dice.bas", 0);
         assert_finished(&run);
         let (lo, hi, doubles) = (run.get("LO"), run.get("HI"), run.get("DOUBLES"));
         assert!(2 <= lo && lo <= hi && hi <= 12, "lo {} hi {}", lo, hi);
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn bounce() {
-        let run = run_file("bounce.bas", 200);
+        let run = run_file("gfx/bounce.bas", 200);
         assert_eq!(run.state, Runtime::Hlt);
         let (x, y) = (run.get("X"), run.get("Y"));
         assert!((1..=62).contains(&x) && (1..=38).contains(&y), "x {} y {}", x, y);
@@ -325,19 +325,19 @@ mod tests {
     #[test]
     fn ellipse() {
         // the first frame ends at 360 degrees of the unturned ellipse: get_size, set_clip, clear and 36 lines
-        let run = run_file("ellipse.bas", 0);
+        let run = run_file("gfx/ellipse.bas", 0);
         assert_eq!(run.state, Runtime::Hlt);
         assert_eq!((run.get("X"), run.get("Y")), (32 + 19, 20));
         assert_eq!(run.surface_calls, 39);
         // turned by 30 * 3 degrees the same point is at the bottom
-        let run = run_file("ellipse.bas", 30);
+        let run = run_file("gfx/ellipse.bas", 30);
         assert_eq!((run.get("X"), run.get("Y")), (32, 20 + 19));
     }
 
     #[test]
     fn pong() {
         let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let run = run_file("pong.bas", 3000);
+        let run = run_file("gfx/pong.bas", 3000);
         assert_eq!(run.state, Runtime::Hlt);
         let (ly, ry, bx, by) = (run.get("LY"), run.get("RY"), run.get("BX"), run.get("BY"));
         assert!((0..=35).contains(&ly) && (0..=35).contains(&ry), "paddles {} {}", ly, ry);
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn strings() {
-        let run = run_file("strings.bas", 0);
+        let run = run_file("ci/strings.bas", 0);
         assert_finished(&run);
         let expected = [("HELLO", 0), ("SAME", 0), ("OTHER", 1), ("LEN1", 13), ("LEN2", 12), ("LEN3", 0)];
         for (name, value) in expected { assert_eq!(run.get(name), value, "{}", name); }
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn string_functions() {
         let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let run = run_file("strfuncs.bas", 0);
+        let run = run_file("ci/strfuncs.bas", 0);
         assert_finished(&run);
         let text = |name: &str| run.strings[run.get(name) as usize].clone();
         let expected = [("A$", "1234"), ("B$", "-56"), ("M$", "World"), ("R$", "World!"), ("F$", "He"), ("T$", "bc"), ("X$", "abc"), ("D$", "2"),
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn control_flow() {
-        let run = run_file("control.bas", 0);
+        let run = run_file("ci/control.bas", 0);
         assert_finished(&run);
         let expected = [("SIZES", 1234), ("KINDS", 11234), ("CS", 2), ("DOWHILE", 10), ("DOUNTIL", 12), ("DU", 5),
             ("LOOPWHILE", 101), ("FOUND", 7), ("EXITDO", 4), ("EXITWHILE", 6), ("ONSUM", 111), ("STEPS", 18), ("BACK", 5)];
@@ -461,7 +461,7 @@ mod tests {
     #[test]
     fn subroutines() {
         let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let run = run_file("subs.bas", 0);
+        let run = run_file("ci/subs.bas", 0);
         assert_finished(&run);
         let expected = [("G", 12), ("F", 120), ("TOTAL", 24), ("C1", 2), ("SQ", 13), ("A", 2), ("B", 1), ("S", -99), ("M", -11), ("R", 5)];
         for (name, value) in expected { assert_eq!(run.get(name), value, "{}", name); }
@@ -560,7 +560,7 @@ mod tests {
     fn integrated_compile() {
         let names: Vec<String> = INTERRUPTS.iter().map(|s| s.to_string()).collect();
         let (interrupts, functions) = load_interrupts(&include_dirs(), &names).unwrap();
-        let basic = std::fs::read_to_string(programs_dir().join("gcd.bas")).unwrap();
+        let basic = std::fs::read_to_string(programs_dir().join("ci/gcd.bas")).unwrap();
         let listing = compile("gcd", &basic, &interrupts, &functions).unwrap().listing;
 
         let from_basic = VirtMach::compile_owned("gcd", &basic, &interrupts, functions.clone()).unwrap().0;
@@ -596,6 +596,22 @@ mod tests {
         assert_eq!(run.get("R"), 31);
         assert_eq!(run.get("V"), 12);
         assert_eq!(run.get("N"), -5);
+    }
+
+    #[test]
+    fn peripherals() {
+        // only compiled and assembled, running them needs the simulators of examples/helpers.rs
+        let names: Vec<String> = ["proc", "math", "string", "time", "gpio", "uart", "i2c", "pwm"].iter().map(|s| s.to_string()).collect();
+        let (interrupts, functions) = load_interrupts(&include_dirs(), &names).unwrap();
+        let files: Vec<PathBuf> = std::fs::read_dir(programs_dir().join("peripherals")).unwrap()
+            .map(|entry| entry.unwrap().path()).filter(|path| path.extension().is_some_and(|e| e == "bas")).collect();
+        assert!(files.len() >= 5, "{:?}", files);
+        for file in files {
+            let src = std::fs::read_to_string(&file).unwrap();
+            let output = compile("test", &src, &interrupts, &functions).unwrap_or_else(|e| panic!("{}: line {}: {}", file.display(), e.line, e.msg));
+            VirtMach::compile_owned("test", &output.listing, &interrupts, functions.clone())
+                .unwrap_or_else(|e| panic!("{}: {:?}\n{}", file.display(), e, output.listing));
+        }
     }
 
     #[test]

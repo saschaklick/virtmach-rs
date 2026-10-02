@@ -11,7 +11,7 @@ fn main(){
         (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
     ].to_vec();
 
-    let Some(source) = helpers::load_source("examples/programs/count.txt", &tables) else { return };
+    let Some(source) = helpers::load_source("examples/programs/ci/count.txt", &tables) else { return };
 
     match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
         Ok(res) => {

@@ -14,11 +14,11 @@ use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInter
 const PINS: VMAtom = 6;
 const MASK: u8 = (1 << PINS) - 1;
 
-pub struct IntGpio {
-    pub port: PORTB
+pub struct IntGpio<'a> {
+    pub port: &'a PORTB
 }
 
-impl <S: Storage> SoftInterrupt<S> for IntGpio {
+impl <S: Storage> SoftInterrupt<S> for IntGpio<'_> {
     fn name(&self) -> &str {
         return gpio::NAME;
     }

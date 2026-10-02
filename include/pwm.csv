@@ -1,0 +1,5 @@
+name,index,arguments,returns,description
+setup,0,2,1,"Start PWM on a pin at a frequency in Hz with duty 0, returns the frequency reached or 0 (pin,frequency)->(actual)"
+duty,1,3,0,"Set the duty cycle to value/max (pin,value,max)->()"
+pulse,2,2,0,"Set the high time in microseconds (pin,microseconds)->()"
+stop,3,1,0,"Stop PWM on a pin and drive it low (pin)->()"

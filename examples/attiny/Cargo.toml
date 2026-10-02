@@ -6,15 +6,15 @@ edition = "2018"
 resolver = "2"
 
 [features]
-default = ["rt", "gpio", "time"]
+default = ["rt", "gpio", "i2c"]
 rt = ["attiny-hal/rt"]
-# adds the .mmcu section that makes simavr trace PB1 into blink.vcd, see simulate.sh
 simavr = []
 proc = []
 time = []
 gpio = []
 i2c = []
 uart = []
+pwm = []
 
 [dependencies]
 panic-halt = "1.0.0"
