@@ -11,13 +11,14 @@
 //!
 //!   cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/attiny/blink.bas gpio time -o examples/attiny/blink.bin
 //!
-//! The features proc, gpio, uart, i2c, pwm and time select the interrupts, the ones left out and the
-//! ones the firmware does not have (string, random, trig, surface) are dummy, which sets
-//! RuntimeError::UnimplementedInterruptFunc when called. The ATtiny85 has no UART or I2C peripheral, only the USI, so
-//! uart is the template from virtmach that sets RuntimeError::UnimplementedInterruptFunc until it
-//! is implemented and i2c is a software controller on PB3 and PB4, see int_i2c.rs. time waits on a
-//! free-running Timer1 clock, see clock.rs, pwm drives PB0 and PB1 from Timer0, see int_pwm.rs,
-//! which a USI UART would need for its baud rate.
+//! The features proc, gpio, uart_tx, uart_rx, i2c, pwm and time select the interrupts, the ones
+//! left out and the ones the firmware does not have (string, random, trig, surface) are dummy,
+//! which sets RuntimeError::UnimplementedInterruptFunc when called. The ATtiny85 has no UART or
+//! I2C peripheral, only the USI, so uart is a software UART with TX on PB2 and RX on PB0, where
+//! uart_tx and uart_rx compile in sending and receiving, see int_uart.rs, and i2c is a software
+//! controller on PB3 and PB4, see int_i2c.rs. time waits on a free-running Timer1 clock, see
+//! clock.rs, which also times the bits of the uart, pwm drives PB0 and PB1 from Timer0, see
+//! int_pwm.rs, which a USI UART would need for its baud rate.
 //!
 //! All timing is up to the time interrupt: HALT only returns to the firmware, which continues the
 //! vm right away. END and runtime errors stop it.
@@ -27,17 +28,19 @@ use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, math } 
 use virtmach::interrupts::dummy;
 #[cfg(feature = "proc")]
 use virtmach::interrupts::proc;
-#[cfg(feature = "uart")]
-use virtmach::interrupts::uart;
 use flash::{ Flash, FlashBytes };
-#[cfg(feature = "time")]
+#[cfg(any(feature = "time", feature = "uart_tx", feature = "uart_rx"))]
 use attiny_hal::clock::Clock as _;
-#[cfg(any(feature = "time", feature = "pwm", feature = "i2c"))]
+#[cfg(any(feature = "time", feature = "pwm", feature = "i2c", feature = "uart_tx", feature = "uart_rx"))]
 use attiny_hal::clock::MHz1;
+#[cfg(any(feature = "time", feature = "uart_tx", feature = "uart_rx"))]
+use clock::Clock as Timer1Clock;
 #[cfg(feature = "time")]
-use clock::{ Clock as Timer1Clock, Schedule };
+use clock::Schedule;
 
-#[cfg(feature = "time")]
+// for time and the uart
+#[cfg(any(feature = "time", feature = "uart_tx", feature = "uart_rx"))]
+#[cfg_attr(not(feature = "time"), allow(dead_code))]
 mod clock;
 mod flash;
 #[cfg(feature = "gpio")]
@@ -48,11 +51,13 @@ mod int_i2c;
 mod int_pwm;
 #[cfg(feature = "time")]
 mod int_time;
+#[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
+mod int_uart;
 #[cfg(feature = "simavr")]
 mod simavr;
 
 /// The factory fuses run the internal 8 MHz oscillator divided by 8
-#[cfg(any(feature = "time", feature = "pwm", feature = "i2c"))]
+#[cfg(any(feature = "time", feature = "pwm", feature = "i2c", feature = "uart_tx", feature = "uart_rx"))]
 type Clock = MHz1;
 
 #[unsafe(link_section = ".progmem.data")]
@@ -62,9 +67,11 @@ static PROGRAM: [u8; include_bytes!("../blink.bin").len()] = *include_bytes!("..
 fn main() -> ! {
     #[allow(unused_variables)]
     let dp = attiny_hal::Peripherals::take().unwrap();
-    #[cfg(feature = "time")]
+    // the uart only reads Timer1 directly
+    #[cfg(any(feature = "time", feature = "uart_tx", feature = "uart_rx"))]
+    #[allow(unused_variables)]
     let clock = Timer1Clock::start(dp.TC1, &dp.CPU, Clock::FREQ);
-    // shared by gpio and pwm
+    // shared by gpio, uart, i2c and pwm
     #[allow(unused_variables)]
     let portb = dp.PORTB;
 
@@ -90,9 +97,9 @@ fn main() -> ! {
         int_gpio::IntGpio { port: &portb },
         #[cfg(not(feature ="gpio"))]
         dummy::Interrupt {},        
-        #[cfg(feature ="uart")]
-        uart::Interrupt {},
-        #[cfg(not(feature ="uart"))]
+        #[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
+        int_uart::IntUart { port: &portb },
+        #[cfg(not(any(feature = "uart_tx", feature = "uart_rx")))]
         dummy::Interrupt {},        
         #[cfg(feature ="i2c")]
         int_i2c::IntI2c::new(&portb),

@@ -6,14 +6,15 @@ edition = "2018"
 resolver = "2"
 
 [features]
-default = ["rt", "gpio", "i2c"]
+default = ["rt", "gpio", "time", "uart_tx"]
 rt = ["attiny-hal/rt"]
 simavr = []
 proc = []
 time = []
 gpio = []
 i2c = []
-uart = []
+uart_rx = []
+uart_tx = []
 pwm = []
 
 [dependencies]
@@ -42,4 +43,4 @@ debug-assertions = false
 [dependencies.virtmach]
 path = "../.."
 default-features = false
-features = ["intmath_nopow", "intmath_nosqr"]
+features = ["int_math_nopow", "int_math_nosqr"]

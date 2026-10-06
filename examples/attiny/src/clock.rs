@@ -4,6 +4,9 @@
 //! make a 32 bit count that wraps after about 9.5 hours. Deadlines are compared with wrapping
 //! arithmetic, so intervals up to half of that work. Timer0 is left free, it is the only clock
 //! the USI can take besides software, so a USI UART needs it for the baud rate.
+//!
+//! The software uart in int_uart.rs times its bits with tcnt1 and runs with interrupts disabled
+//! for a whole byte, longer than an overflow period at low baud rates, so it calls count_overflow.
 
 use core::{ arch::asm, cell::Cell };
 use attiny_hal::pac::{ CPU, TC1 };
@@ -78,6 +81,28 @@ impl Clock {
         }
         self.tc1.timsk().modify(|_, w| w.ocie1a().clear_bit());
         unsafe { interrupt::enable() };
+    }
+}
+
+/// The low byte of the count, for timing with interrupts disabled. Reads Timer1 directly, which
+/// Clock::start must have started.
+#[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
+#[inline(always)]
+pub fn tcnt1() -> u8 {
+    unsafe { TC1::steal() }.tcnt1().read().bits()
+}
+
+/// Counts an overflow that is pending because interrupts are disabled, so the count does not lose
+/// it if they stay disabled for more than one overflow period of 256 counts
+#[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
+#[inline(always)]
+pub fn count_overflow(cs: interrupt::CriticalSection) {
+    let tc1 = unsafe { TC1::steal() };
+    if tc1.tifr().read().tov1().bit_is_set() {
+        // writing the flag clears it
+        tc1.tifr().write(|w| w.tov1().set_bit());
+        let overflows = OVERFLOWS.borrow(cs);
+        overflows.set(overflows.get().wrapping_add(1));
     }
 }
 
