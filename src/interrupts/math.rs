@@ -20,7 +20,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;11] = [
 
 /// Integer square root by shifting and subtracting, None for negative numbers. Unlike
 /// checked_isqrt it needs no lookup table, which would take 512 bytes of RAM on AVR.
-#[cfg(not(feature = "intmath_nosqr"))]
+#[cfg(not(feature = "int_math_nosqr"))]
 fn isqrt(num: crate::VMAtom) -> Option<crate::VMAtom> {
     if num < 0 {
         return None;
@@ -60,7 +60,7 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
                 let res =
                 match op {
                     3 => ( !a, false),
-                    #[cfg(not(feature = "intmath_nosqr"))]
+                    #[cfg(not(feature = "int_math_nosqr"))]
                     10 => { match isqrt(a) { Some(r) => (r, false), None => { vm.error = RuntimeError::IllegalInstructionValue; (0, false) } } }
                     _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; (0, false) }
                 };               
@@ -81,7 +81,7 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
                     6  => { res = a.overflowing_mul(b); }                    
                     7  => { res = if b != 0 { a.overflowing_div(b) } else { (0, false) }; if b == 0 { vm.error = RuntimeError::InterruptError; } }
                     8  => { res = if b != 0 { (a % b, false) } else { (0, false) }; if b == 0 { vm.error = RuntimeError::InterruptError; } }
-                    #[cfg(not(feature = "intmath_nopow"))]
+                    #[cfg(not(feature = "int_math_nopow"))]
                     9  => { res = a.overflowing_pow(b as u32); }                                          
                     _ => { res = (0, false); vm.error = RuntimeError::UnimplementedInterruptFunc; }
                 }
@@ -114,17 +114,17 @@ mod tests {
 
     #[test]
     fn pow_and_sqr() {
-        #[cfg(not(feature = "intmath_nopow"))]
+        #[cfg(not(feature = "int_math_nopow"))]
         assert_eq!(call(9, &[3, 4]), (81, RuntimeError::NoError, 1));
-        #[cfg(feature = "intmath_nopow")]
+        #[cfg(feature = "int_math_nopow")]
         assert_eq!(call(9, &[3, 4]), (0, RuntimeError::UnimplementedInterruptFunc, 1));
-        #[cfg(not(feature = "intmath_nosqr"))]
+        #[cfg(not(feature = "int_math_nosqr"))]
         assert_eq!(call(10, &[49]), (7, RuntimeError::NoError, 1));
-        #[cfg(feature = "intmath_nosqr")]
+        #[cfg(feature = "int_math_nosqr")]
         assert_eq!(call(10, &[49]), (0, RuntimeError::UnimplementedInterruptFunc, 1));
     }
 
-    #[cfg(not(feature = "intmath_nosqr"))]
+    #[cfg(not(feature = "int_math_nosqr"))]
     #[test]
     fn isqrt_matches_core() {
         for num in (VMAtom::MIN..=VMAtom::MAX).step_by(if VMAtom::BITS > 16 { 65521 } else { 1 }).chain([VMAtom::MAX]) {

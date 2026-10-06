@@ -24,8 +24,8 @@ basic = ["compile", "dep:pest", "dep:pest_derive"]
 i8 = []
 i16 = []
 i32 = []
-intmath_nopow = []
-intmath_nosqr = []
+int_math_nopow = []
+int_math_nosqr = []
 
 [dependencies]
 cfg_block = "0.2.0"
