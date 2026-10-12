@@ -2,12 +2,16 @@
 //!
 //! Intervals have a resolution of clock::US_PER_COUNT microseconds and must be shorter than
 //! 2^31 counts, about 4.7 hours. Longer or negative ones set RuntimeError::InterruptError.
-//! There is no RTC, so get_time and get_date are not implemented.
+//! There is no RTC, so get_time and get_date are not implemented. The tick of set_tick is waited
+//! by the main loop after every HLT, see wait_tick.
 
+use core::cell::Cell;
 use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, time } };
 use crate::clock::{ Clock, Schedule, US_PER_COUNT };
 
 pub struct IntTime<'a> {
+    /// the tick of set_tick in milliseconds, 0 for none, the main loop waits it after every HLT
+    pub tick: &'a Cell<u32>,
     pub clock: &'a Clock,
     /// for wait_until, the first interval counts from the start of the program
     pub schedule: Schedule
@@ -29,6 +33,14 @@ fn interval(seconds: VMAtom, milliseconds: VMAtom) -> Option<u32> {
     if counts > i32::MAX as u32 { None } else { Some(counts) }
 }
 
+/// Waits the tick the program set with set_tick, in milliseconds
+pub fn wait_tick(clock: &Clock, milliseconds: u32) {
+    if milliseconds > 0 {
+        let counts = milliseconds.saturating_mul(1000 / US_PER_COUNT).min(i32::MAX as u32);
+        clock.wait_until(clock.now().wrapping_add(counts));
+    }
+}
+
 impl <S: Storage> SoftInterrupt<S> for IntTime<'_> {
     fn name(&self) -> &str {
         return time::NAME;
@@ -47,9 +59,17 @@ impl <S: Storage> SoftInterrupt<S> for IntTime<'_> {
                 };
                 if op == 1 { vm.stack_push(waited as VMAtom); }
             }
+            3 => {
+                let (seconds, milliseconds) = (vm.stack_pop(), vm.stack_pop());
+                if seconds < 0 || milliseconds < 0 {
+                    vm.error = RuntimeError::InterruptError;
+                } else {
+                    self.tick.set((seconds as u32).saturating_mul(1000).saturating_add(milliseconds as u32));
+                }
+            }
             // no RTC: get_time pushes hours, minutes, seconds, ms and get_date year, month, day
-            2 | 3 => {
-                for _ in 0..(if op == 2 { 4 } else { 3 }) { vm.stack_push(0); }
+            10 | 11 => {
+                for _ in 0..(if op == 10 { 4 } else { 3 }) { vm.stack_push(0); }
                 vm.error = RuntimeError::UnimplementedInterruptFunc;
             }
             _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }

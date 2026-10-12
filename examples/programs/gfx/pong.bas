@@ -1,10 +1,10 @@
-REM Pong playing against itself, uses the surface and random interrupts
+REM Pong playing against itself, uses the surface and math interrupts
 REM Each paddle follows the ball once it crosses into its half, one pixel per frame.
 REM Hits near a paddle's edge send the ball off steeper, which the other
 REM paddle may not catch in time. Each side's score is shown at the top
 REM center of its half, both scores start over once a side reaches 10.
 REM STR$ turns the scores into dynamic strings, which need the vm's alloc feature.
-REQ surface, random, string
+REQ surface, math, string
 
 W, H = surface.get_size()
 surface.set_clip(0, 0, W, H)
@@ -59,9 +59,9 @@ WHILE 1
 WEND
 
 1000 REM serve from the middle in a random direction
-1010 BX = W / 2 : BY = random.range(4, H - 5)
-1020 DX = random.range(0, 1) * 2 - 1
-1030 DY = random.range(0, 1) * 2 - 1
+1010 BX = W / 2 : BY = math.random(4, H - 5)
+1020 DX = math.random(0, 1) * 2 - 1
+1030 DY = math.random(0, 1) * 2 - 1
 1040 RETURN
 
 2000 REM bounce angle from where the 5 pixel paddle was hit, the centre keeps the angle

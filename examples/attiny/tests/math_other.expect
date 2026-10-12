@@ -1,0 +1,30 @@
+# value EXPECTED TOLERANCE LABEL: a value sent by the program, within the tolerance
+# valuemod: the same, the difference counted around the 16 bit circle
+# range LOW HIGH LABEL: a value from LOW to HIGH
+# gap MINIMUM_MS: the next value starts at least that long after the last one ended
+value 100 0 sqr(10000)
+value 181 0 sqr(32767)
+value 0 0 sqr(0)
+value 1 0 sqr(2)
+value 243 0 pow(3,5)
+value 16384 0 pow(2,14)
+value 16807 0 pow(7,5)
+value -32768 0 pow(-2,15)
+value 10000 0 pow(10,4)
+range 1 6 random(1,6)#0
+range 1 6 random(1,6)#1
+range 1 6 random(1,6)#2
+range 1 6 random(1,6)#3
+range 1 6 random(1,6)#4
+range 1 6 random(1,6)#5
+range 1 6 random(1,6)#6
+range 1 6 random(1,6)#7
+range -1000 1000 random(-1000,1000)#0
+range -1000 1000 random(-1000,1000)#1
+range -1000 1000 random(-1000,1000)#2
+range -1000 1000 random(-1000,1000)#3
+range -1000 1000 random(-1000,1000)#4
+range -1000 1000 random(-1000,1000)#5
+value -21846 0 tick marker before
+gap 200
+value -17477 0 tick marker after

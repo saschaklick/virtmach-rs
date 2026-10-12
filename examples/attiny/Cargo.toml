@@ -16,6 +16,10 @@ i2c = []
 uart_rx = []
 uart_tx = []
 pwm = []
+math_trig = ["virtmach/int_math_trig"]
+math_random = ["virtmach/int_math_random"]
+math_sqr = ["virtmach/int_math_sqr"]
+math_pow = ["virtmach/int_math_pow"]
 
 [dependencies]
 panic-halt = "1.0.0"
@@ -43,4 +47,3 @@ debug-assertions = false
 [dependencies.virtmach]
 path = "../.."
 default-features = false
-features = ["int_math_nopow", "int_math_nosqr"]

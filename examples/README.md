@@ -33,7 +33,7 @@ Compiles file `programs/ci/count.txt` and continuously runs it at 250ms per inst
 cargo run --example run --features basic -- examples/programs/ci/sum.bas 10
 ```
 
-Runs another listing or a `.bas` program. The optional second argument sets the milliseconds per instruction. For BASIC programs, the variable values are printed to the right of the dashboard. Only the **proc**, **math**, **random** and **trig** interrupts are available here.
+Runs another listing or a `.bas` program. The optional second argument sets the milliseconds per instruction. For BASIC programs, the variable values are printed to the right of the dashboard. Only the **proc** and **math** interrupts are available here.
 
 ```
 cargo run --example surface_term --features compile
@@ -76,7 +76,7 @@ cargo run --example surface_sdl2 --features basic -- examples/programs/gfx/bounc
 cargo run --example surface_term --features basic -- examples/programs/gfx/ellipse.bas
 ```
 
-`run` only provides the **proc**, **math**, **random** and **trig** interrupts. The other examples also provide **string** and **surface**, with **trig** last.
+`run` only provides the **proc** and **math** interrupts. The other examples also provide **string** and **surface**.
 
 # Programs
 
@@ -92,12 +92,12 @@ Located in the `programs` directory.
 |`gcd.bas`|Line numbers, GOSUB/RETURN and GOTO.|**math**|
 |`bits.bas`|Hex literals, operators and direct `math.*` calls; spills variables to memory.|**math**|
 |`fib.bas`|Arrays with DIM.|**math**|
-|`dice.bas`|Calls `random.range`.|**math**, **random**|
-|`ellipse.bas`|Draws a rotating ellipse with `trig.sin`, `trig.cos`, `trig.deg_to_rad` and `trig.scale`, and pauses on HALT once per frame.|**math**, **surface**, **trig**|
+|`dice.bas`|Calls `math.random`.|**math**|
+|`ellipse.bas`|Draws a rotating ellipse with `math.sin`, `math.cos`, `math.deg_to_rad` and `math.scale`, and pauses on HALT once per frame.|**math**, **surface**|
 |`bounce.bas`|Draws a bouncing box with `surface.*` calls and pauses on HALT once per frame.|**math**, **surface**|
-|`pong.bas`|Pong playing against itself, with computer paddles, bounce angles based on where the ball hits the paddle, and scores turned into text with `STR$` and drawn with `surface.draw_text`. Needs a surface that implements `draw_text` and `get_text_size`, and the `alloc` feature.|**math**, **random**, **surface**, **string**|
+|`pong.bas`|Pong playing against itself, with computer paddles, bounce angles based on where the ball hits the paddle, and scores turned into text with `STR$` and drawn with `surface.draw_text`. Needs a surface that implements `draw_text` and `get_text_size`, and the `alloc` feature.|**math**, **surface**, **string**|
 |`control.bas`|`ELSEIF`, `SELECT CASE`, `DO … LOOP`, `EXIT`, `ON … GOTO/GOSUB`, labels and a variable `STEP`.|**math**|
-|`subs.bas`|`SUB`, `FUNCTION`, `DEF FN`, `SHARED` and the built-ins `SWAP`, `SGN`, `MIN`, `MAX`, `RND`.|**math**, **random**, **string**|
+|`subs.bas`|`SUB`, `FUNCTION`, `DEF FN`, `SHARED` and the built-ins `SWAP`, `SGN`, `MIN`, `MAX`, `RND`.|**math**, **string**|
 |`strings.bas`|String literals as `#db` entries, passed by index to `string.get_length` and `surface.draw_text`.|**surface**, **string**|
 |`strfuncs.bas`|`STR$`, `MID$`, `LEFT$`, `RIGHT$`, `LEN` and joining with `+` on the **string** interrupt. Results are dynamic strings and need the `alloc` feature.|**surface**, **string**|
 
@@ -106,9 +106,9 @@ Located in the `programs` directory.
 With the `basic` feature, `VirtMach::compile` and `VirtMach::compile_owned` also accept BASIC programs, so the SDK's `compiler` compiles them too. BASIC is detected by a first line starting with `REM`. `sdk/src/bin/basic.rs` is a BASIC-only front end that can also write the generated listing (`-l`) and prints where each variable is kept. It compiles into a virtmach listing and then into a binary. It takes the same interrupt list as `compiler`: the order sets the interrupt numbers, and each interrupt's functions are checked against the `.csv` file with the same name. Both tools look for that file next to the compiled source first, then in `./include/`, then in each directory given with `-I` (repeatable), in order, and last in the repository's `include/`, where its CSV files are. So they are found from any working directory. Use the runtime's order:
 
 ```
-cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/programs/gfx/bounce.bas proc math random surface -l bounce.txt
+cargo run --manifest-path sdk/Cargo.toml --bin basic -- examples/programs/gfx/bounce.bas proc math surface -l bounce.txt
 ```
 
 `-l` writes the generated listing, and `-v 2` also prints it. Without a print interrupt, results stay in registers and memory. The compiler prints which register or memory cell each variable uses.
 
-`REQ surface, random` states which interrupts a program needs: compiling fails at that line, naming the available ones, if one of them isn't in the interrupt list. Interrupt functions are called as `interrupt.function(args)`, for example `X = math.and(0x03, 0xf4)`, `surface.clear(0)` or `W, H = surface.get_size()`. Text in double quotes (write `""` for a quote inside it) becomes a `#db` entry. Its value is the entry's index, so `S = "Hello"` stores a number that can be passed to functions like `surface.draw_text`. Identical texts share one entry, and there can be at most 255 different ones. `STR$(n)`, `MID$(s, start[, length])`, `LEFT$(s, n)` and `RIGHT$(s, n)` return the index of a dynamic string built with `string.format` or `string.substr`, and `LEN(s)` calls `string.get_length`. `+` joins strings with `string.concat` when an operand is a string (a literal, a name ending in `$`, or another join), e.g. `S$ = S$ + STR$(I)`. Positions are 1-based. Each call in the source owns one dynamic string that is overwritten every time the call runs, so there can be at most 32 of them. They need the vm's `alloc` feature. `+` and `-` compile to native instructions. `*`, `/`, `MOD`, `^`, `<<`, `>>`, `AND`, `OR`, `XOR` and `NOT` compile to `math` interrupt calls. `SUB` and `FUNCTION` have local variables (unless declared `SHARED`) that start at 0 on every call. They are stored statically, so recursion is a compile error. Strings compare by content through `string.compare`. The language reference is at the top of `src/basic.rs`, and `cargo test --bin basic` (inside `sdk`) runs all example programs in the VM.
+`REQ surface, math` states which interrupts a program needs: compiling fails at that line, naming the available ones, if one of them isn't in the interrupt list. Interrupt functions are called as `interrupt.function(args)`, for example `X = math.and(0x03, 0xf4)`, `surface.clear(0)` or `W, H = surface.get_size()`. Text in double quotes (write `""` for a quote inside it) becomes a `#db` entry. Its value is the entry's index, so `S = "Hello"` stores a number that can be passed to functions like `surface.draw_text`. Identical texts share one entry, and there can be at most 255 different ones. `STR$(n)`, `MID$(s, start[, length])`, `LEFT$(s, n)` and `RIGHT$(s, n)` return the index of a dynamic string built with `string.format` or `string.substr`, and `LEN(s)` calls `string.get_length`. `+` joins strings with `string.concat` when an operand is a string (a literal, a name ending in `$`, or another join), e.g. `S$ = S$ + STR$(I)`. Positions are 1-based. Each call in the source owns one dynamic string that is overwritten every time the call runs, so there can be at most 32 of them. They need the vm's `alloc` feature. `+` and `-` compile to native instructions. `*`, `/`, `MOD`, `^`, `<<`, `>>`, `AND`, `OR`, `XOR` and `NOT` compile to `math` interrupt calls. `SUB` and `FUNCTION` have local variables (unless declared `SHARED`) that start at 0 on every call. They are stored statically, so recursion is a compile error. Strings compare by content through `string.compare`. The language reference is at the top of `src/basic.rs`, and `cargo test --bin basic` (inside `sdk`) runs all example programs in the VM.

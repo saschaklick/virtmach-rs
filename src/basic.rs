@@ -29,7 +29,7 @@
 //!   - operators: + - (native), * / MOD ^ << >> AND OR XOR NOT (math interrupt),
 //!     = <> < > <= >= (-1 for true, 0 for false), strings compare by content through string.compare,
 //!     < and > stay correct when the difference of the numbers overflows
-//!   - built-in functions ABS(x), SGN(x), MIN(a, b, ...), MAX(a, b, ...), RND(low, high) (random.range)
+//!   - built-in functions ABS(x), SGN(x), MIN(a, b, ...), MAX(a, b, ...), RND(low, high) (math.random)
 //!   - in IF/WHILE/DO/CASE conditions AND, OR and NOT are logical and short-circuit
 //!
 //! Variables live in registers r0..r11, further variables and arrays in memory.
@@ -858,8 +858,8 @@ impl <'a> Codegen <'a> {
             }
             "RND" => {
                 if args.len() != 2 { return self.fail("RND takes the lowest and the highest value"); }
-                if !self.functions.contains_key("random.range") { return self.fail("RND needs random.range from the random interrupt, add random to the interrupts"); }
-                self.expr(&Expr::IntCall(String::from("random.range"), args.to_vec()))
+                if !self.functions.contains_key("math.random") { return self.fail("RND needs math.random from the math interrupt, add math to the interrupts"); }
+                self.expr(&Expr::IntCall(String::from("math.random"), args.to_vec()))
             }
             _ if self.subs.contains_key(name) => self.call_sub(name, args, true),
             "STR$" => {

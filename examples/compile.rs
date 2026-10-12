@@ -6,9 +6,7 @@ fn main(){
     let tables: Vec<(&str, &[SoftInterruptFunction])> = [
         (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
         (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),        
-        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
         (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice())
     ].to_vec();
 
     let Some(source) = helpers::load_source("examples/programs/ci/count.txt", &tables) else { return };

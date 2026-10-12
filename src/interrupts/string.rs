@@ -16,7 +16,7 @@ pub const FUNCTIONS: [SoftInterruptFunction;5] = [
 ];
 
 fn format_atom(num: VMAtom, buf: &mut [u8; 24]) -> &[u8] {
-    let mut value = (num as i64).unsigned_abs();
+    let mut value = num.unsigned_abs();
     let mut i = buf.len();
     loop {
         i -= 1;

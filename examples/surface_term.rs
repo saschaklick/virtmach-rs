@@ -20,14 +20,9 @@ fn main(){
         (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
         (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
         (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
-        (interrupts::random::NAME, interrupts::random::FUNCTIONS.as_slice()),
         (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
         (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
-        (interrupts::trig::NAME, interrupts::trig::FUNCTIONS.as_slice()),
-        (interrupts::gpio::NAME, interrupts::gpio::FUNCTIONS.as_slice()),
-        (interrupts::uart::NAME, interrupts::uart::FUNCTIONS.as_slice()),
-        (interrupts::i2c::NAME, interrupts::i2c::FUNCTIONS.as_slice()),
-        (interrupts::pwm::NAME, interrupts::pwm::FUNCTIONS.as_slice())
+        (interrupts::periph::NAME, interrupts::periph::FUNCTIONS.as_slice())
     ].to_vec();
 
     let Some(source) = helpers::load_source("examples/programs/gfx/starfield.txt", &tables) else { return };
@@ -56,17 +51,16 @@ fn main(){
                     &mut interrupts::math::Interrupt {},
                     &mut interrupts::proc::Interrupt {},
                     &mut interrupts::string::Interrupt {},
-                    &mut interrupts::random::Interrupt {},
                     &mut time,
-                    &mut interrupts::trig::Interrupt {},
-                    &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } },
-                    &mut hw.gpio,
-                    &mut hw.uart,
-                    &mut hw.i2c,
-                    &mut hw.pwm
+                    &mut interrupts::dummy::Interrupt {},
+                    &mut interrupts::dummy::Interrupt {},
+                    &mut interrupts::dummy::Interrupt {},
+                    &mut interrupts::dummy::Interrupt {},
+                    &mut hw,
+                    &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }
                 ];
 
-                if ready { vm.run(4096, interrupts); }
+                if ready { vm.run(4096, interrupts); time.after_run(&vm); }
 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);

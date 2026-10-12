@@ -9,9 +9,9 @@ const RUNTIME: &str = env!("CARGO_BIN_EXE_runtime");
 
 /// Interrupts the runtime provides without a surface, the order does not matter: built-in
 /// interrupts are numbered by their INDEX
-const PLAIN: [&str; 4] = ["proc", "math", "random", "trig"];
+const PLAIN: [&str; 2] = ["proc", "math"];
 /// Interrupts the runtime provides with the term surface
-const TERM: [&str; 6] = ["proc", "math", "string", "random", "surface", "trig"];
+const TERM: [&str; 4] = ["proc", "math", "string", "surface"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -88,7 +88,7 @@ fn compiler_default_output_and_repo_include() {
 
     // cargo run inside sdk/
     let pong = dir.join("pong.bin").display().to_string();
-    let out = run(COMPILER, &["../examples/programs/gfx/pong.bas", "proc", "math", "string", "random", "surface", "-o", &pong, "-v", "0"], &root().join("sdk"));
+    let out = run(COMPILER, &["../examples/programs/gfx/pong.bas", "proc", "math", "string", "surface", "-o", &pong, "-v", "0"], &root().join("sdk"));
     assert_ok(&out);
     assert!(Path::new(&pong).is_file());
 }
@@ -141,7 +141,7 @@ fn basic_writes_listing() {
     let dir = tmp_dir("basic_writes_listing");
     let listing = dir.join("sum.txt").display().to_string();
     let out_file = dir.join("sum.bin").display().to_string();
-    let out = run(BASIC, &[&program("ci/sum.bas"), "proc", "math", "random", "-o", &out_file, "-l", &listing], &root());
+    let out = run(BASIC, &[&program("ci/sum.bas"), "proc", "math", "-o", &out_file, "-l", &listing], &root());
     assert_ok(&out);
     let text = stdout(&out);
     assert!(text.contains(&format!("[OK] wrote listing to {}", listing)), "{}", text);
@@ -194,8 +194,8 @@ fn runtime_term_surface() {
 fn interrupt_order_does_not_matter() {
     // built-in interrupts are numbered by their INDEX, not by their position
     let dir = tmp_dir("interrupt_order_does_not_matter");
-    let forward = compile(BASIC, &program("ci/dice.bas"), &["proc", "math", "random"], &dir, "forward");
-    let backward = compile(BASIC, &program("ci/dice.bas"), &["random", "math", "proc"], &dir, "backward");
+    let forward = compile(BASIC, &program("ci/dice.bas"), &["proc", "math"], &dir, "forward");
+    let backward = compile(BASIC, &program("ci/dice.bas"), &["math", "proc"], &dir, "backward");
     assert_eq!(fs::read(forward).unwrap(), fs::read(backward).unwrap());
 }
 
@@ -206,7 +206,7 @@ fn runtime_errors() {
     // without -s term the surface slot holds dummy
     let source = dir.join("surface.bas");
     fs::write(&source, "REM\nsurface.clear(0)\nEND\n").unwrap();
-    let bin = compile(BASIC, &source.display().to_string(), &["proc", "math", "random", "trig", "surface"], &dir, "surface");
+    let bin = compile(BASIC, &source.display().to_string(), &["proc", "math", "surface"], &dir, "surface");
     let out = run(RUNTIME, &[&bin, "-v", "0"], &root());
     assert_fails(&out, "runtime error: UnimplementedInterruptFunc");
 

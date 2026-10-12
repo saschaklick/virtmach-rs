@@ -6,6 +6,8 @@ cfg_block! {
         pub const ATOM_ID: u8 = 1;
         
         pub use i8 as VMAtom;
+        /// The unsigned integer of the size of an atom
+        pub use u8 as VMUAtom;
         pub use i16 as VMAddr;        
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }
@@ -31,6 +33,8 @@ cfg_block! {
         pub const ATOM_ID: u8 = 2;
 
         pub use i16 as VMAtom;
+        /// The unsigned integer of the size of an atom
+        pub use u16 as VMUAtom;
         pub use i16 as VMAddr;
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }
@@ -56,6 +60,8 @@ cfg_block! {
         pub const ATOM_ID: u8 = 4;
         
         pub use i32 as VMAtom;
+        /// The unsigned integer of the size of an atom
+        pub use u32 as VMUAtom;
         pub use i32 as VMAddr;
 
         pub trait VAtom { fn get_atom(&mut self) -> VMAtom; }

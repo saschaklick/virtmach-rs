@@ -156,9 +156,9 @@ mod tests {
     use std::path::PathBuf;
     use virtmach::basic::{ Error, Output };
     use crate::interrupt_csv::Functions;
-    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, random, surface, string, trig, dummy } };
+    use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, surface, string, dummy } };
 
-    const INTERRUPTS: [&str; 6] = ["proc", "math", "random", "surface", "string", "trig"];
+    const INTERRUPTS: [&str; 4] = ["proc", "math", "surface", "string"];
 
     /// Records surface calls instead of drawing.
     struct MockSurface { calls: usize, texts: Vec<String> }
@@ -233,11 +233,11 @@ mod tests {
 
         let mut vm = VirtMach::new();
         vm.load_program(program);
-        let (mut p, mut m, mut r, mut s, mut t, mut g) = (proc::Interrupt {}, math::Interrupt {}, random::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {}, trig::Interrupt {});
-        let [mut time, mut gpio, mut uart, mut i2c, mut pwm] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
+        let (mut p, mut m, mut s, mut t) = (proc::Interrupt {}, math::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {});
+        let [mut time, mut d4, mut d5, mut d6, mut d7, mut periph] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
         {
             // at their INDEX like the runtime, the numbers come from load_interrupts
-            let mut ints: [&mut dyn SoftInterrupt; 11] = [&mut m, &mut p, &mut t, &mut r, &mut time, &mut g, &mut s, &mut gpio, &mut uart, &mut i2c, &mut pwm];
+            let mut ints: [&mut dyn SoftInterrupt; 10] = [&mut m, &mut p, &mut t, &mut time, &mut d4, &mut d5, &mut d6, &mut d7, &mut periph, &mut s];
             for (slot, int) in ints.iter().enumerate() {
                 assert!(virtmach::interrupts::builtin_index(int.name()).is_none_or(|index| index as usize == slot), "{} in slot {}", int.name(), slot);
             }
@@ -530,7 +530,7 @@ mod tests {
             ("IF \"a\" = 1 THEN X = 1", "cannot compare a string with a number"),
             ("X = RND(1)", "RND takes"),
             ("SHARED X", "SHARED outside"),
-            ("REQ math, joystick", "requires the joystick interrupt, which is not available (available: proc, math, random, surface, string, trig)"),
+            ("REQ math, joystick", "requires the joystick interrupt, which is not available (available: proc, math, surface, string)"),
         ];
         for (src, msg) in cases {
             match build(src) {
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn peripherals() {
         // only compiled and assembled, running them needs the simulators of examples/helpers.rs
-        let names: Vec<String> = ["proc", "math", "string", "time", "gpio", "uart", "i2c", "pwm"].iter().map(|s| s.to_string()).collect();
+        let names: Vec<String> = ["proc", "math", "string", "time", "periph"].iter().map(|s| s.to_string()).collect();
         let (interrupts, functions) = load_interrupts(&include_dirs(), &names).unwrap();
         let files: Vec<PathBuf> = std::fs::read_dir(programs_dir().join("peripherals")).unwrap()
             .map(|entry| entry.unwrap().path()).filter(|path| path.extension().is_some_and(|e| e == "bas")).collect();

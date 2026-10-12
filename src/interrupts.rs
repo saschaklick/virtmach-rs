@@ -3,20 +3,18 @@ use crate::{ VirtMach, VMAtom, Storage, Ram };
 pub mod dummy;
 pub mod proc;
 pub mod math;
+#[cfg(feature = "int_math_random")]
+pub mod math_random;
+#[cfg(feature = "int_math_trig")]
+pub mod math_trig;
 pub mod string;
-#[cfg(feature = "random")]
-pub mod random;   
 pub mod surface;
-pub mod trig;
-pub mod gpio;
-pub mod uart;
-pub mod i2c;
+pub mod periph;
 pub mod time;
-pub mod pwm;
 
 /// Built-in interrupts have fixed numbers, their INDEX, so programs compiled with any selection of
 /// them run on every runtime that places them there. Unused numbers are filled with dummy.
-pub const BUILTIN_SLOTS: u8 = 11;
+pub const BUILTIN_SLOTS: u8 = 10;
 
 /// Interrupt numbers are 4 bits in the INT instruction
 pub const MAX_SLOTS: u8 = 16;
@@ -27,15 +25,9 @@ pub fn builtin_index(name: &str) -> Option<u8> {
         n if n == math::NAME => Some(math::INDEX),
         n if n == proc::NAME => Some(proc::INDEX),
         n if n == string::NAME => Some(string::INDEX),
-        #[cfg(feature = "random")]
-        n if n == random::NAME => Some(random::INDEX),
         n if n == time::NAME => Some(time::INDEX),
-        n if n == trig::NAME => Some(trig::INDEX),
         n if n == surface::NAME => Some(surface::INDEX),
-        n if n == gpio::NAME => Some(gpio::INDEX),
-        n if n == uart::NAME => Some(uart::INDEX),
-        n if n == i2c::NAME => Some(i2c::INDEX),
-        n if n == pwm::NAME => Some(pwm::INDEX),
+        n if n == periph::NAME => Some(periph::INDEX),
         _ => None
     }
 }
@@ -102,12 +94,12 @@ mod tests {
 
     #[test]
     fn numbers() {
-        assert_eq!(interrupt_numbers(&["proc", "math", "surface"]), Ok(std::vec![1, 0, 6]));
-        assert_eq!(interrupt_numbers(&["math", "proc", "surface"]), Ok(std::vec![0, 1, 6]));
+        assert_eq!(interrupt_numbers(&["proc", "math", "surface"]), Ok(std::vec![1, 0, 9]));
+        assert_eq!(interrupt_numbers(&["math", "proc", "surface"]), Ok(std::vec![0, 1, 9]));
         // not built in: after the built-in numbers in the given order
-        assert_eq!(interrupt_numbers(&["joystick", "math", "sound"]), Ok(std::vec![11, 0, 12]));
+        assert_eq!(interrupt_numbers(&["joystick", "math", "sound"]), Ok(std::vec![10, 0, 11]));
         assert!(interrupt_numbers(&["math", "math"]).is_err());
-        assert!(interrupt_numbers(&["a", "b", "c", "d", "e", "f"]).is_err());
+        assert!(interrupt_numbers(&["a", "b", "c", "d", "e", "f", "g"]).is_err());
         assert_eq!(builtin_index(dummy::NAME), None);
     }
 }

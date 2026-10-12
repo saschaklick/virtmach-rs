@@ -23,7 +23,7 @@
 //! with atoms above 16 bit pulse only takes up to 65535 microseconds.
 
 use attiny_hal::{ clock::Clock as _, pac::{ PORTB, TC0 } };
-use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, pwm } };
+use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom };
 use crate::flash::{ read_u8, read_u16 };
 
 const HZ: u32 = crate::Clock::FREQ;
@@ -167,13 +167,9 @@ impl<'a> IntPwm<'a> {
     }
 }
 
-impl <S: Storage> SoftInterrupt<S> for IntPwm<'_> {
-    fn name(&self) -> &str {
-        return pwm::NAME;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach<S>) {
-        let op = vm.stack_pop();
+impl IntPwm<'_> {
+    /// Calls the function op of the periph interrupt, counted from the first function of the peripheral
+    pub fn call<S: Storage>(&mut self, vm: &mut VirtMach<S>, op: VMAtom) {
         if !(0..=3).contains(&op) {
             vm.error = RuntimeError::UnimplementedInterruptFunc;
             return;

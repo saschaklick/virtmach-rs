@@ -1,5 +1,5 @@
 use std::{ collections::VecDeque, env, ffi::OsStr, fs::File, io::{ Read, Write }, ops::Range, path::Path, time::{ Duration, Instant, SystemTime, UNIX_EPOCH } };
-use virtmach::{ VirtMach, VMAtom, Program, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, gpio, uart, i2c, time, pwm } };
+use virtmach::{ VirtMach, VMAtom, Program, Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, periph, time } };
 
 #[allow(dead_code)]
 pub fn disassemble(program: Program) {
@@ -209,19 +209,12 @@ impl SimGpio {
     }
 }
 
-impl SoftInterrupt for SimGpio {
-    fn name(&self) -> &str {
-        return gpio::NAME;
-    }
-
-    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] {
-        return &gpio::FUNCTIONS;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach) {
+impl SimGpio {
+    /// Calls the function op of the periph interrupt, which is one of this peripheral's
+    fn call_op(&mut self, vm: &mut VirtMach, op: VMAtom) {
         self.called = true;
-        let op = vm.stack_pop();
-        let Some(args) = pop_arguments(vm, &gpio::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let Some(args) = pop_arguments(vm, &periph::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let op = op - periph::GPIO;
         match op {
             0 | 1 if !(0..=2).contains(&args[1]) => { vm.error = RuntimeError::InterruptError; }
             0 => { if let Some(pin) = self.pin(vm, args[0]) { pin.mode = args[1]; } }
@@ -294,19 +287,12 @@ fn log_byte(log: &mut VecDeque<u8>, byte: u8) {
     log.push_back(byte);
 }
 
-impl SoftInterrupt for SimUart {
-    fn name(&self) -> &str {
-        return uart::NAME;
-    }
-
-    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] {
-        return &uart::FUNCTIONS;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach) {
+impl SimUart {
+    /// Calls the function op of the periph interrupt, which is one of this peripheral's
+    fn call_op(&mut self, vm: &mut VirtMach, op: VMAtom) {
         self.called = true;
-        let op = vm.stack_pop();
-        let Some(args) = pop_arguments(vm, &uart::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let Some(args) = pop_arguments(vm, &periph::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let op = op - periph::UART;
         if args[0] != 0 {
             vm.error = RuntimeError::InterruptError;
             match op { 2 => vm.stack_push(-1), 1 | 4 | 10..=13 => vm.stack_push(0), _ => {} }
@@ -397,19 +383,12 @@ impl SimI2c {
     }
 }
 
-impl SoftInterrupt for SimI2c {
-    fn name(&self) -> &str {
-        return i2c::NAME;
-    }
-
-    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] {
-        return &i2c::FUNCTIONS;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach) {
+impl SimI2c {
+    /// Calls the function op of the periph interrupt, which is one of this peripheral's
+    fn call_op(&mut self, vm: &mut VirtMach, op: VMAtom) {
         self.called = true;
-        let op = vm.stack_pop();
-        let Some(args) = pop_arguments(vm, &i2c::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let Some(args) = pop_arguments(vm, &periph::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let op = op - periph::I2C;
         if args[0] != 0 {
             vm.error = RuntimeError::InterruptError;
             if op != 0 { vm.stack_push(0); }
@@ -455,13 +434,15 @@ impl SoftInterrupt for SimI2c {
 #[allow(dead_code)]
 pub struct SimTime {
     pub deadline: Option<Instant>,
+    /// what the program set with set_tick, the host waits it after HLT, see after_run
+    pub tick: Duration,
     /// when the last wait_until returned, the first one counts from the start
     pub last: Instant
 }
 
 impl Default for SimTime {
     fn default() -> Self {
-        Self { deadline: None, last: Instant::now() }
+        Self { deadline: None, tick: Duration::ZERO, last: Instant::now() }
     }
 }
 
@@ -472,6 +453,14 @@ impl SimTime {
         if self.deadline.is_some_and(|deadline| Instant::now() < deadline) { return false; }
         self.deadline = None;
         true
+    }
+
+    /// Waits the tick if the vm stopped with HLT, call it after every vm.run. A wait
+    /// of wait_for or wait_until has set the deadline already, it has its own interval.
+    pub fn after_run(&mut self, vm: &VirtMach) {
+        if vm.state == Runtime::Hlt && self.deadline.is_none() && !self.tick.is_zero() {
+            self.deadline = Some(Instant::now() + self.tick);
+        }
     }
 
     fn wait(&mut self, vm: &mut VirtMach, deadline: Instant) {
@@ -530,11 +519,15 @@ impl SoftInterrupt for SimTime {
                 vm.stack_push(waited as VMAtom);
                 if waited { self.wait(vm, target); }
             }
-            2 => {
+            3 => match interval(args[0], args[1]) {
+                Some(tick) => { self.tick = tick; }
+                None => { vm.error = RuntimeError::InterruptError; }
+            }
+            10 => {
                 let ms = since_epoch.as_millis() % 86_400_000;
                 for value in [ms / 3_600_000, ms / 60_000 % 60, ms / 1000 % 60, ms % 1000] { vm.stack_push(value as VMAtom); }
             }
-            3 => {
+            11 => {
                 let (year, month, day) = civil_from_days((since_epoch.as_secs() / 86_400) as i64);
                 for value in [year, month, day] { vm.stack_push(value as VMAtom); }
             }
@@ -564,19 +557,12 @@ pub struct SimPwm {
     pub outputs: [Option<SimPwmOutput>; SIM_PINS]
 }
 
-impl SoftInterrupt for SimPwm {
-    fn name(&self) -> &str {
-        return pwm::NAME;
-    }
-
-    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] {
-        return &pwm::FUNCTIONS;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach) {
+impl SimPwm {
+    /// Calls the function op of the periph interrupt, which is one of this peripheral's
+    fn call_op(&mut self, vm: &mut VirtMach, op: VMAtom) {
         self.called = true;
-        let op = vm.stack_pop();
-        let Some(args) = pop_arguments(vm, &pwm::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let Some(args) = pop_arguments(vm, &periph::FUNCTIONS, op) else { vm.error = RuntimeError::UnimplementedInterruptFunc; return };
+        let op = op - periph::PWM;
         let Some(output) = usize::try_from(args[0]).ok().and_then(|p| self.outputs.get_mut(p)) else {
             vm.error = RuntimeError::InterruptError;
             if op == 0 { vm.stack_push(0); }
@@ -612,6 +598,27 @@ pub struct SimPeripherals {
     pub uart: SimUart,
     pub i2c: SimI2c,
     pub pwm: SimPwm
+}
+
+impl SoftInterrupt for SimPeripherals {
+    fn name(&self) -> &str {
+        return periph::NAME;
+    }
+
+    fn functions(&self) -> &'static [SoftInterruptFunction<'static>] {
+        return &periph::FUNCTIONS;
+    }
+
+    fn call(&mut self, vm: &mut VirtMach) {
+        let op = vm.stack_pop();
+        match op {
+            op if (periph::GPIO..periph::PWM).contains(&op) => self.gpio.call_op(vm, op),
+            op if (periph::PWM..periph::UART).contains(&op) => self.pwm.call_op(vm, op),
+            op if (periph::UART..periph::I2C).contains(&op) => self.uart.call_op(vm, op),
+            op if (periph::I2C..).contains(&op) => self.i2c.call_op(vm, op),
+            _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }
+        }
+    }
 }
 
 impl Default for SimPeripherals {

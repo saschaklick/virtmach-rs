@@ -3,7 +3,7 @@ REM Variables in a SUB or FUNCTION are local unless declared SHARED and start at
 REM on every call. They are stored statically, so recursion is not possible.
 REM After END: G = 12, F = 120, TOTAL = 24, C1 = 2, SQ = 13, H$ = "Hello, World!",
 REM            A = 2, B = 1, S = -99, M = -11, R = 5
-REQ random, string
+REQ math, string
 
 FUNCTION GCD(A, B)
   WHILE B <> 0

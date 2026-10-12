@@ -1,7 +1,7 @@
 use core::ops::Neg;
 use core::{mem, slice, str};
 
-use crate::{REG_MAX, MEM_SIZE};
+use crate::{REG_MAX, MEM_SIZE, StackPtr};
 use crate::opcodes::OpCode;
 use crate::processor::Processor;
 
@@ -105,18 +105,18 @@ impl <'a, S: Storage> VirtMach <'a, S> {
         if self.processor.stack_ptr == 0 {
             self.error = RuntimeError::HeapOverflow;
         } else {
-            self.memory[self.processor.stack_ptr] = val;
+            self.memory[self.processor.stack_ptr as usize] = val;
             self.processor.stack_ptr -= 1;
         }
     }
 
     pub fn stack_pop(&mut self) ->  VMAtom {
-        if self.processor.stack_ptr >= MEM_SIZE - 1 {
+        if self.processor.stack_ptr >= (MEM_SIZE - 1) as StackPtr {
             self.error = RuntimeError::HeapUnderflow;
             return 0 as VMAtom;
         } else {
             self.processor.stack_ptr += 1;
-            return self.memory[self.processor.stack_ptr];            
+            return self.memory[self.processor.stack_ptr as usize];            
         }
     }
 
@@ -196,14 +196,14 @@ impl <'a, S: Storage> VirtMach <'a, S> {
         }
 
         match op {            
-            x if x == (OpCode::REG as u8) => { self.processor.act_reg = reg.into(); }            
-            x if x == (OpCode::SET as u8) => { self.registers[self.processor.act_reg] = val; }            
-            x if x == (OpCode::LOA as u8) => { if memchk(self, val) { self.registers[self.processor.act_reg] = self.memory[val as usize]; } }
-            x if x == (OpCode::STO as u8) => { if memchk(self, val) { self.memory[val as usize] = self.registers[self.processor.act_reg]; } }            
+            x if x == (OpCode::REG as u8) => { self.processor.act_reg = reg; }            
+            x if x == (OpCode::SET as u8) => { self.registers[self.processor.act_reg as usize] = val; }            
+            x if x == (OpCode::LOA as u8) => { if memchk(self, val) { self.registers[self.processor.act_reg as usize] = self.memory[val as usize]; } }
+            x if x == (OpCode::STO as u8) => { if memchk(self, val) { self.memory[val as usize] = self.registers[self.processor.act_reg as usize]; } }            
             x if x == (OpCode::PSH as u8) => { self.stack_push(val); }            
             x if x == (OpCode::POP as u8) => { if reg != 0x0f { self.registers[reg as usize] = self.stack_pop(); } else if memchk(self, val) { self.memory[val as usize] = self.stack_pop(); } else { self.error = RuntimeError::RegisterOutOfBounds; } }                                    
-            x if x == (OpCode::ADD as u8) => { self.registers[self.processor.act_reg] = add(self, self.registers[self.processor.act_reg], val); }                                    
-            x if x == (OpCode::SUB as u8) => { self.registers[self.processor.act_reg] = sub(self, self.registers[self.processor.act_reg], val); }                                   
+            x if x == (OpCode::ADD as u8) => { self.registers[self.processor.act_reg as usize] = add(self, self.registers[self.processor.act_reg as usize], val); }                                    
+            x if x == (OpCode::SUB as u8) => { self.registers[self.processor.act_reg as usize] = sub(self, self.registers[self.processor.act_reg as usize], val); }                                   
             x if x == (OpCode::CAL as u8) => { jmpchk(self, val, true); }
             x if x == (OpCode::JMP as u8) => { jmpchk(self, val, false); }
             x if x == (OpCode::JPC as u8) => { if self.processor.carry { jmpchk(self, val, false); } }
@@ -223,7 +223,7 @@ impl <'a, S: Storage> VirtMach <'a, S> {
                     x if x == (OpCode::RET as u8) => { let addr = self.stack_pop(); if addr >= 0 { self.processor.prog_cnt = addr as usize; } else { self.error = RuntimeError::InstructionPointerOutOfBounds }  }                                      
                     x if x == (OpCode::CLR as u8) => { self.processor.zero = false; self.processor.carry = false; self.processor.carry = false;  }                                      
                     x if x == (OpCode::INV as u8) => { self.processor.zero = !self.processor.zero; self.processor.carry = !self.processor.carry; self.processor.sign = !self.processor.sign; }                                      
-                    x if x == (OpCode::NEG as u8) => { let res = self.registers[self.processor.act_reg].neg(); self.registers[self.processor.act_reg] = res; self.processor.sign = res < 0; }                                      
+                    x if x == (OpCode::NEG as u8) => { let res = self.registers[self.processor.act_reg as usize].neg(); self.registers[self.processor.act_reg as usize] = res; self.processor.sign = res < 0; }                                      
                     x if x == (OpCode::BRK as u8) => { if self.halt_on_brk == true { self.state = Runtime::Hlt; } else if inst_pos == 0 { self.halt_on_brk = true; } }
                     x if x == (OpCode::HLT as u8) => { self.state = Runtime::Hlt; }
                     x if x == (OpCode::END as u8) => { self.state = Runtime::Stp; }

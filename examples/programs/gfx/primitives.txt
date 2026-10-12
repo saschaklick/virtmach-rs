@@ -1,6 +1,5 @@
 ; Move a point on screen and draw different primitives along with it.                                                    
     #req math
-    #req random
     #req surface
 
     #def X  r0

@@ -1,6 +1,6 @@
 //! The .mmcu section read by simavr, built with the simavr feature only.
 //!
-//! It tells simavr the mcu and clock and to trace the pin PB1 into blink.vcd, the layout follows
+//! It tells simavr the mcu and clock and to trace the pins PB1, PB0 and PB2-PB5 into blink.vcd, the layout follows
 //! simavr's avr_mcu_section.h. The pin follows PORTB and the timer outputs, so pwm shows too.
 
 const TAG_NAME: u8 = 1;
@@ -20,7 +20,7 @@ struct Long { tag: u8, len: u8, value: u32 }
 struct Trace { tag: u8, len: u8, mask: u8, what: u16, name: [u8; 32] }
 
 #[repr(C, packed)]
-struct Mmcu { name: Str<9>, frequency: Long, vcd_filename: Str<10>, vcd_period: Long, trace: Trace, end: [u8; 2] }
+struct Mmcu { name: Str<9>, frequency: Long, vcd_filename: Str<10>, vcd_period: Long, pb1: Trace, pb0: Trace, pb2: Trace, pb3: Trace, pb4: Trace, pb5: Trace, end: [u8; 2] }
 
 const fn name32(name: &[u8]) -> [u8; 32] {
     let mut res = [0u8; 32];
@@ -37,6 +37,12 @@ static SIMAVR_MMCU: Mmcu = Mmcu {
     frequency: Long { tag: TAG_FREQUENCY, len: 4, value: 1_000_000 },
     vcd_filename: Str { tag: TAG_VCD_FILENAME, len: 10, string: *b"blink.vcd\0" },
     vcd_period: Long { tag: TAG_VCD_PERIOD, len: 4, value: 10_000 },
-    trace: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 1, name: name32(b"PB1") },
+    // PB1 first, so its signal is "!" in the file for simulate.sh
+    pb1: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 1, name: name32(b"PB1") },
+    pb0: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 0, name: name32(b"PB0") },
+    pb2: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 2, name: name32(b"PB2") },
+    pb3: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 3, name: name32(b"PB3") },
+    pb4: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 4, name: name32(b"PB4") },
+    pb5: Trace { tag: TAG_VCD_PORTPIN, len: 35, mask: b'B', what: 5, name: name32(b"PB5") },
     end: [0, 0]
 };

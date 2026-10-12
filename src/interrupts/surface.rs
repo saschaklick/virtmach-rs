@@ -2,7 +2,7 @@ use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftIn
 
 pub const NAME: &str = "surface";
 
-pub const INDEX: u8 = 6;
+pub const INDEX: u8 = 9;
 
 #[allow(dead_code)]
 pub static FUNCTIONS: [SoftInterruptFunction;13] = [

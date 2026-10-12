@@ -1,6 +1,5 @@
 ; Starfield          
     #req math
-    #req random
     #req surface
 
     #def POINTS_AMOUNT  r6  ; total amount of moving points to draw
@@ -59,8 +58,8 @@
     for_each_random_dot:
         psh #1
 
-        _ = random.range(#0, SURFACE_HEIGHT)
-        _ = random.range(#0, SURFACE_WIDTH)
+        _ = math.random(#0, SURFACE_HEIGHT)
+        _ = math.random(#0, SURFACE_WIDTH)
         surface.draw_pixel(_)
 
         reg POINT_ADDR
@@ -72,12 +71,12 @@
         jmp loop
 
     init_x:
-        r0 = random.range(#-16, #16)        
+        r0 = math.random(#-16, #16)        
         reg r0
         sto POINT_ADDR
         ret
     init_y:
-        r0 = random.range(#-1, #1)                
+        r0 = math.random(#-1, #1)                
         reg r0        
         sto POINT_ADDR
         ret

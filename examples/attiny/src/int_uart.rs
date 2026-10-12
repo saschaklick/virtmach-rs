@@ -38,7 +38,7 @@ use attiny_hal::pac::PORTB;
 #[cfg(feature = "uart_rx")]
 use attiny_hal::pac::EXINT;
 use avr_device::interrupt::{ self, CriticalSection, Mutex };
-use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, uart } };
+use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom };
 use crate::clock::{ self, US_PER_COUNT };
 
 #[cfg(feature = "uart_tx")]
@@ -399,13 +399,9 @@ impl IntUart<'_> {
     }
 }
 
-impl <S: Storage> SoftInterrupt<S> for IntUart<'_> {
-    fn name(&self) -> &str {
-        return uart::NAME;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach<S>) {
-        let op = vm.stack_pop();
+impl IntUart<'_> {
+    /// Calls the function op of the periph interrupt, counted from the first function of the peripheral
+    pub fn call<S: Storage>(&mut self, vm: &mut VirtMach<S>, op: VMAtom) {
         // only the functions of the directions the features compile in
         let count = match op {
             0 => 3,

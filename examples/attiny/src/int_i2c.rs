@@ -19,7 +19,7 @@
 
 use core::arch::asm;
 use attiny_hal::{ clock::Clock as _, pac::PORTB };
-use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, i2c } };
+use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom };
 
 const SDA: u8 = 1 << 3;
 const SCL: u8 = 1 << 4;
@@ -139,13 +139,9 @@ fn memory<S: Storage>(vm: &VirtMach<S>, address: VMAtom, len: VMAtom) -> Option<
     Some((address as usize, len as usize))
 }
 
-impl <S: Storage> SoftInterrupt<S> for IntI2c<'_> {
-    fn name(&self) -> &str {
-        return i2c::NAME;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach<S>) {
-        let op = vm.stack_pop();
+impl IntI2c<'_> {
+    /// Calls the function op of the periph interrupt, counted from the first function of the peripheral
+    pub fn call<S: Storage>(&mut self, vm: &mut VirtMach<S>, op: VMAtom) {
         let count = match op {
             0 | 1 | 3 => 2,
             2 | 5 => 3,

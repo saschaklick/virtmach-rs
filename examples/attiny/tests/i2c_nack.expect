@@ -1,0 +1,5 @@
+i2c start
+i2c addr 0x50 W nack
+i2c stop
+tx 0xff
+tx 0xff

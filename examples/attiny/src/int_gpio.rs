@@ -9,7 +9,7 @@
 //! only the register access differs.
 
 use attiny_hal::pac::PORTB;
-use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom, interrupts::{ SoftInterrupt, gpio } };
+use virtmach::{ RuntimeError, Storage, VirtMach, VMAtom };
 
 const PINS: VMAtom = 6;
 const MASK: u8 = (1 << PINS) - 1;
@@ -18,13 +18,9 @@ pub struct IntGpio<'a> {
     pub port: &'a PORTB
 }
 
-impl <S: Storage> SoftInterrupt<S> for IntGpio<'_> {
-    fn name(&self) -> &str {
-        return gpio::NAME;
-    }
-
-    fn call(&mut self, vm: &mut VirtMach<S>) {
-        let op = vm.stack_pop();
+impl IntGpio<'_> {
+    /// Calls the function op of the periph interrupt, counted from the first function of the peripheral
+    pub fn call<S: Storage>(&mut self, vm: &mut VirtMach<S>, op: VMAtom) {
         if !matches!(op, 0..=6 | 10 | 11) {
             vm.error = RuntimeError::UnimplementedInterruptFunc;
             return;
