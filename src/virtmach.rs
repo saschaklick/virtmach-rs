@@ -35,9 +35,9 @@ pub struct VirtMach <'a, S: Storage = Ram> {
     pub state: Runtime,
     halt_on_brk: bool,
     #[cfg(not(feature = "alloc"))]
-    pub load: Option<VMAtom>,
+    pub load: (Option<VMAtom>, bool),
     #[cfg(feature = "alloc")]
-    pub load: (Option<VMAtom>,Option<VMStringIndex>)    
+    pub load: (Option<VMAtom>,Option<VMStringIndex>, bool)    
 }
 
 impl VirtMach <'_> {
@@ -70,9 +70,9 @@ impl <'a, S: Storage> VirtMach <'a, S> {
             state: Runtime::Ini,
             halt_on_brk: false,
             #[cfg(not(feature = "alloc"))]
-            load: None,
+            load: (None, false),
             #[cfg(feature = "alloc")]
-            load: (None, None)
+            load: (None, None, false)
         };    
         
         return res;  
