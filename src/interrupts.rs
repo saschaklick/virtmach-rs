@@ -87,7 +87,11 @@ pub trait SoftInterrupt<S: Storage = Ram> {
     fn functions(&self) -> &'static [SoftInterruptFunction<'static>];
     
     fn call(&mut self, vm: &mut VirtMach<'_, S>);
+
+    /// Decodes a color atom to [r, g, b, a], see color::Color::to_rgba
+    fn atom_to_rgba(atom: VMAtom) -> [u8; 4] where Self: Sized { crate::color::Color::to_rgba(atom) }
 }
+
 #[cfg(all(test, feature = "compile"))]
 mod tests {
     use super::*;

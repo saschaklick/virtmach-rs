@@ -18,6 +18,9 @@
 //!   - REQ interrupt[, ...] fails the compilation if an interrupt is not among the available ones
 //!   - interrupt functions from the loaded .csv files, e.g. math.and(0x03, 0xf4) in expressions,
 //!     surface.clear(0) as statement and W, H = surface.get_size() for multiple return values
+//!   - colors as in CSS: #rgb, #rgba, #rrggbb, #rrggbbaa become a number, i8: RGB232, i16: RGB555, i32: RGB888,
+//!     with the alpha reduced to 1 bit as the highest (sign) bit of the atom: alpha 1, also the default, is a
+//!     negative value, alpha 0 a positive one. Decoding is up to the interrupts.
 //!   - strings in double quotes ("" for a quote) become #db entries, their value is the entry's index,
 //!     which is passed to interrupt functions, e.g. surface.draw_text(0, 0, 0, "Hello")
 //!   - STR$(n), MID$(s, start[, length]), LEFT$(s, n), RIGHT$(s, n) through string.format and string.substr,
@@ -425,6 +428,7 @@ impl Builder {
     fn primary(&self, pair: Pair<Rule>, line: usize) -> Result<Expr, Error> {
         match pair.as_rule() {
             Rule::number => Ok(Expr::Num(parse_number(pair.as_str(), line)?)),
+            Rule::color => Ok(Expr::Num(crate::color::Color::parse(pair.as_str()))),
             Rule::string => { let s = pair.as_str(); Ok(Expr::Str(s[1..s.len() - 1].replace("\"\"", "\""))) }
             Rule::ident => Ok(Expr::Var(pair.as_str().to_uppercase())),
             Rule::call => {
@@ -1671,4 +1675,19 @@ pub fn functions(tables: &[(&str, &[SoftInterruptFunction])]) -> (Vec<String>, F
         }
     }
     (tables.iter().map(|t| String::from(t.0)).collect(), functions)
+}
+
+#[cfg(test)]
+mod color_tests {
+    use std::vec::Vec;
+
+    #[test]
+    fn color_literals_compile() {
+        let src = "REM c\nA = #fff\nB = #00ff00 + #f008\nC = #12345\n";
+        let r = crate::VirtMach::compile("t", src, Vec::new());
+        assert!(r.is_err(), "5 digits is not a color");
+        let src = "REM c\nA = #fff\nB = #00ff00\nC = #f008\nD = #0000ff00\n";
+        let r = crate::VirtMach::compile("t", src, Vec::new());
+        assert!(r.is_ok(), "{:?}", r.err());
+    }
 }

@@ -1,11 +1,11 @@
-use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }};
+use crate::{Storage, RuntimeError, VirtMach, interrupts::{ SoftInterrupt, SoftInterruptFunction }, color::Color};
 
 pub const NAME: &str = "surface";
 
 pub const INDEX: u8 = 9;
 
 #[allow(dead_code)]
-pub static FUNCTIONS: [SoftInterruptFunction;13] = [
+pub static FUNCTIONS: [SoftInterruptFunction;15] = [
     SoftInterruptFunction { no:  0, name: "clear",          arguments: 1, returns: 0, help: "Clear surface (color)->()" },
     SoftInterruptFunction { no:  1, name: "draw_pixel",     arguments: 3, returns: 0, help: "Draw pixel (x,y,color)->()" },
     SoftInterruptFunction { no:  2, name: "draw_rect",      arguments: 5, returns: 0, help: "Draw rectagle (x,y,w,h,color)->()" },
@@ -18,7 +18,9 @@ pub static FUNCTIONS: [SoftInterruptFunction;13] = [
     SoftInterruptFunction { no: 16, name: "get_size",       arguments: 0, returns: 2, help: "Get surface size ()->(w,h)" },
     SoftInterruptFunction { no: 17, name: "get_image_size", arguments: 1, returns: 2, help: "Get image size (image_idx)->(w,h)" },
     SoftInterruptFunction { no: 18, name: "get_clip",       arguments: 0, returns: 4, help: "Get surface clipping area ()->(x,y,w,h)" },
-    SoftInterruptFunction { no: 19, name: "set_clip",       arguments: 4, returns: 0, help: "Set surface clipping area (x,y,w,h)->()" }
+    SoftInterruptFunction { no: 19, name: "set_clip",       arguments: 4, returns: 0, help: "Set surface clipping area (x,y,w,h)->()" },
+    SoftInterruptFunction { no: 20, name: "set_color",      arguments: 2, returns: 0, help: "Set surface palette colors used for font and images (color_idx,color)->()" },
+    SoftInterruptFunction { no: 21, name: "rgb",            arguments: 3, returns: 1, help: "Convert RGB color values to color (r,g,b)->(color)" }
 ];
 
 pub struct Interrupt {}
@@ -37,9 +39,9 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
         let op = vm.stack_pop();
         match op {
             0 => { let _color = vm.stack_pop(); vm.error = RuntimeError::UnimplementedInterruptFunc; }
-            1 => { let (_x, _y, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
-            2 | 3 => { let (_x, _y, _w, _h, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
-            4 => { let (_x1, _y1, _x2, _y2, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            1 => { let (_x, _y, _color) = (vm.stack_pop(), vm.stack_pop(), Color::to_rgba(vm.stack_pop())); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            2 | 3 => { let (_x, _y, _w, _h, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), Color::to_rgba(vm.stack_pop())); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            4 => { let (_x1, _y1, _x2, _y2, _color) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), Color::to_rgba(vm.stack_pop())); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             5 => { let (_x, _y, _w, _h, _border_idx) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             6 => { let (_x, _y, _image_idx) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             10 => { let (_x, _y, _font_idx, _db_index) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
@@ -48,6 +50,9 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
             17 => { let _image_idx = vm.stack_pop(); vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             18 => { vm.stack_push(0); vm.stack_push(0); vm.stack_push(0); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             19 => { let (_x, _y, _w, _h) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            20 => { let (_image_idx, _color) = (vm.stack_pop(), Color::to_rgba(vm.stack_pop())); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            21 => { let (_image_idx, _color) = (vm.stack_pop(), Color::to_rgba(vm.stack_pop())); vm.error = RuntimeError::UnimplementedInterruptFunc; }
+            22 => { let (_r, _g, _b) = (vm.stack_pop(), vm.stack_pop(), vm.stack_pop()); vm.stack_push(0); vm.error = RuntimeError::UnimplementedInterruptFunc; }
             _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }
         }
     }

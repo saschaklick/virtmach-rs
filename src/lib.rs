@@ -28,6 +28,7 @@ mod string;
 mod writer;
 mod decompile;
 mod reporting;
+pub mod color;
 pub mod interrupts;
 
 pub use atom::*;

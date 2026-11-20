@@ -76,12 +76,13 @@ expr    = { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
 prefix  = _{ op_neg | op_not }
 infix   = _{ op_add | op_sub | op_mul | op_div | op_mod | op_pow | op_shl | op_shr
            | op_ne | op_le | op_ge | op_lt | op_gt | op_eq | op_and | op_or | op_xor }
-primary = _{ number | string | int_call | call | ident | "(" ~ expr ~ ")" }
+primary = _{ color | number | string | int_call | call | ident | "(" ~ expr ~ ")" }
 
 int_call = { int_func ~ "(" ~ args? ~ ")" }
 int_func = @{ ident_raw ~ "." ~ ident_raw }
 call     = { ident ~ "(" ~ args? ~ ")" }
 args     = { expr ~ ("," ~ expr)* }
+color    = @{ "#" ~ (ASCII_HEX_DIGIT{8} | ASCII_HEX_DIGIT{6} | ASCII_HEX_DIGIT{4} | ASCII_HEX_DIGIT{3}) ~ !ident_char }
 number   = @{ ^"0x" ~ ASCII_HEX_DIGIT+ | ASCII_DIGIT+ }
 string   = @{ "\"" ~ ("\"\"" | !("\"" | NEWLINE) ~ ANY)* ~ "\"" }
 
