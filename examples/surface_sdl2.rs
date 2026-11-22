@@ -1,11 +1,11 @@
 #![allow(static_mut_refs)]
 
 extern crate sdl2;
-use sdl2::{ VideoSubsystem, event::Event, keyboard::Keycode, pixels::Color };
+use sdl2::{ event::Event, keyboard::Keycode, pixels::Color };
 
 use std::{thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{self, SoftInterrupt, SoftInterruptFunction };
+use virtmach::interrupt_set;
 
 mod helpers;
 
@@ -16,25 +16,22 @@ const W: usize = 64;
 const H: usize = 40;
 const SCALE: f32 = 5.0;
 
-fn main() -> Result<(), String> {        
-    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
-        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-        (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
-        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-        (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
-        (interrupts::periph::NAME, interrupts::periph::FUNCTIONS.as_slice())
-    ].to_vec();
+// The interrupts once, for the tables to compile with and for the vm to run with. The `_` ones
+// are the variables of main, given where the list is made.
+interrupt_set!(interrupts = [math, proc, string, time => _, periph => _, surface => _]);
+
+fn main() -> Result<(), String> {
+    let tables = interrupts!(tables);
 
     let Some(source) = helpers::load_source("examples/programs/gfx/primitives.txt", &tables) else { return Ok(()) };
-    
-    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
-        Ok(res) => {                    
+
+    match VirtMach::compile_tables(source.name.as_str(), source.code.as_str(), &tables) {
+        Ok(res) => {
             let program = res.0;
 
             let mut vm = VirtMach::new();
-            
-            vm.load_program(program);                                                          
+
+            vm.load_program(program);
 
             let sdl_context = sdl2::init()?;
             let video_subsystem = sdl_context.video()?;
@@ -46,13 +43,13 @@ fn main() -> Result<(), String> {
                 .build()
                 .map_err(|e| e.to_string())?;
 
-            let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;                                
+            let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
 
             canvas.set_scale(SCALE, SCALE)?;
 
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
-            canvas.present();                    
+            canvas.present();
 
             let mut event_pump = sdl_context.event_pump()?;
 
@@ -71,24 +68,14 @@ fn main() -> Result<(), String> {
                         } => break 'running,
                         _ => {}
                     }
-                }                        
+                }
 
-                // at their INDEX
                 let ready = time.ready();
-                let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                    &mut interrupts::math::Interrupt {},
-                    &mut interrupts::proc::Interrupt {},
-                    &mut interrupts::string::Interrupt {},
-                    &mut time,
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut hw,
-                    &mut int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] }
-                ];                            
-                
-                if ready { vm.run(4096, interrupts); time.after_run(&vm); }
+                // it borrows the canvas only while the vm runs, then the canvas is presented
+                let mut surface = int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] };
+                interrupts!(let list, &mut time, &mut hw, &mut surface);
+
+                if ready { vm.run(4096, list); time.after_run(&vm); }
 
                 // not while a wait keeps the vm paused, nothing new was drawn
                 match vm.state {
@@ -96,15 +83,15 @@ fn main() -> Result<(), String> {
                     _ if ready => { canvas.present(); }
                     _ => {}
                 }
-                
+
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);
                 print!("\x1b[H{}", dashboard);
                 helpers::print_variables_beside(&vm, &source.variables, &dashboard, 1, 1);
                 helpers::print_hardware_report(&hw, 1, helpers::report_column(&dashboard, &source.variables, 1));
-                
+
                 thread::sleep(time::Duration::from_millis(1000 / 15))
-            }                    
+            }
         }
         Err(err) => println!("compile error: {:?}", err)
     }

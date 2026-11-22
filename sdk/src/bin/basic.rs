@@ -11,8 +11,8 @@ use interrupt_csv::load_interrupts;
 #[command(version = "0.1")]
 #[command(about = "Compile BASIC programs into virtmach-rs binaries", long_about = None)]
 struct Args {
-    #[arg(help = "BASIC file to compile")]
-    source: String,
+    #[arg(required_unless_present = "help_interrupt", help = "BASIC file to compile")]
+    source: Option<String>,
 
     #[arg(value_delimiter = ' ', num_args = 1.., help = "Interrupts to include, in the order of the runtime. Reads from a .csv file by the same name")]
     interrupts: Option<Vec<String>>,
@@ -25,6 +25,10 @@ struct Args {
 
     #[arg(short, long, help = "Optional file to write the generated virtmach listing to")]
     listing: Option<String>,
+
+    #[arg(long = "help-interrupt", value_name = "INTERRUPT[.FUNCTION]", num_args = 0..=1, default_missing_value = "",
+        help = "Print the help of interrupts and their functions as csv and exit, by name or number, e.g. math, math.sqr, 0.10 or .sqr. Without a value all of them. With this, the arguments are interrupts, no program; use --help-interrupt=math")]
+    help_interrupt: Option<String>,
 
     #[arg(short, long, default_value_t = 1, help = "Verbosity level")]
     verbose: u32
@@ -81,7 +85,20 @@ fn main() -> Result<(), String> {
         }).unwrap()
     }
 
-    let source = Path::new(&args.source);
+    if let Some(filter) = &args.help_interrupt {
+        // the arguments are all interrupts, there is no program
+        let names: Vec<String> = args.source.iter().cloned().chain(args.interrupts.iter().flatten().cloned()).collect();
+        let dirs = interrupt_csv::search_path(Path::new(""), &args.include);
+        let mut out = String::new();
+        return match interrupt_csv::help(&dirs, &names, filter, &mut out) {
+            Ok(0) => { eprintln!("[ERROR] no interrupt or function matches {:?}", filter); Err(String::new()) }
+            Ok(_) => { print!("{}", out); Ok(()) }
+            Err(err) => { eprintln!(); eprintln!("[ERROR] {}", err); eprintln!(); Err(String::new()) }
+        };
+    }
+    let source_arg = args.source.clone().unwrap();
+
+    let source = Path::new(&source_arg);
     let name = source.file_stem().unwrap_or(OsStr::new("n/a")).to_string_lossy().to_string();
     let out_file = args.output.unwrap_or(format!("{}.bin", source.file_stem().unwrap_or(OsStr::new("out")).to_string_lossy()));
 
@@ -90,7 +107,7 @@ fn main() -> Result<(), String> {
 
     let mut content = String::new();
     File::open(source).and_then(|mut f| f.read_to_string(&mut content))
-        .map_err(|e| { eprintln!(); eprintln!("[ERROR] could not read {}: {}", args.source, e); eprintln!(); String::new() })?;
+        .map_err(|e| { eprintln!(); eprintln!("[ERROR] could not read {}: {}", source_arg, e); eprintln!(); String::new() })?;
 
     let output = match compile(&name, &content, &interrupts, &functions) {
         Ok(output) => output,

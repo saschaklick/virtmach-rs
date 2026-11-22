@@ -1,5 +1,5 @@
 use std::{ collections::VecDeque, env, ffi::OsStr, fs::File, io::{ Read, Write }, ops::Range, path::Path, time::{ Duration, Instant, SystemTime, UNIX_EPOCH } };
-use virtmach::{ VirtMach, VMAtom, Program, Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, periph, time } };
+use virtmach::{ VirtMach, VMAtom, Program, Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, InterruptTable, periph, time } };
 
 #[allow(dead_code)]
 pub fn disassemble(program: Program) {
@@ -52,7 +52,7 @@ pub struct Source {
 
 /// Loads the file given as first command line argument, or `default`. Errors are printed and return None.
 #[allow(dead_code)]
-pub fn load_source(default: &str, tables: &[(&str, &[SoftInterruptFunction])]) -> Option<Source> {
+pub fn load_source(default: &str, tables: &[InterruptTable]) -> Option<Source> {
     let filename = env::args().nth(1).unwrap_or(String::from(default));
     match load_file(&filename) {
         Ok((name, code)) => {
@@ -65,11 +65,14 @@ pub fn load_source(default: &str, tables: &[(&str, &[SoftInterruptFunction])]) -
 
 /// Variables of a BASIC program, empty for listings. BASIC errors are printed and return None.
 #[cfg(feature = "basic")]
-fn basic_variables(name: &str, code: &str, tables: &[(&str, &[SoftInterruptFunction])]) -> Option<Vec<(String, Slot)>> {
+fn basic_variables(name: &str, code: &str, tables: &[InterruptTable]) -> Option<Vec<(String, Slot)>> {
     use virtmach::basic::{ self, Loc };
 
     if !basic::is_basic(code) { return Some(vec![]); }
-    let (interrupts, functions) = basic::functions(tables);
+    let (interrupts, functions) = match basic::functions(tables) {
+        Ok(res) => res,
+        Err(err) => { println!("interrupt error: {}", err); return None; }
+    };
     match basic::compile(name, code, &interrupts, &functions) {
         Ok(output) => {
             let mut variables: Vec<(String, Slot)> = output.variables.iter()
@@ -86,7 +89,7 @@ fn basic_variables(name: &str, code: &str, tables: &[(&str, &[SoftInterruptFunct
 }
 
 #[cfg(not(feature = "basic"))]
-fn basic_variables(_name: &str, code: &str, _tables: &[(&str, &[SoftInterruptFunction])]) -> Option<Vec<(String, Slot)>> {
+fn basic_variables(_name: &str, code: &str, _tables: &[InterruptTable]) -> Option<Vec<(String, Slot)>> {
     let first = code.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("");
     if first.trim_start_matches(|c: char| c.is_ascii_digit()).trim_start().to_ascii_uppercase().starts_with("REM") {
         println!("this looks like a BASIC program, compiling it needs the basic feature: cargo run --example <example> --features basic -- <file>");

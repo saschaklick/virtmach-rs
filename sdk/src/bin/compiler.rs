@@ -9,8 +9,8 @@ use virtmach::{ VirtMach, VMAtom, Program, ListingError };
 #[command(about = "Compile virtmach-rs listings into binary", long_about = None)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(help = "Listing file to compile")]
-    source: String,
+    #[arg(required_unless_present = "help_interrupt", help = "Listing file to compile")]
+    source: Option<String>,
 
     #[arg(value_delimiter = ' ', num_args = 1.., help = "Additional interrupts to include. Reads from a .csv file by the same name")]
     interrupts: Option<Vec<String>>,
@@ -20,6 +20,10 @@ struct Args {
 
     #[arg(short, long, help = "Optional binary output file")]
     output: Option<String>,
+
+    #[arg(long = "help-interrupt", value_name = "INTERRUPT[.FUNCTION]", num_args = 0..=1, default_missing_value = "",
+        help = "Print the help of interrupts and their functions as csv and exit, by name or number, e.g. math, math.sqr, 0.10 or .sqr. Without a value all of them. With this, the arguments are interrupts, no listing; use --help-interrupt=math")]
+    help_interrupt: Option<String>,
 
     #[arg(short, long, default_value_t = 1, help = "Verbosity level")]
     verbose: u32    
@@ -38,17 +42,30 @@ fn main() -> Result<(), String> {
         }).unwrap()
     }
     
-    let dirs = interrupt_csv::search_path(Path::new(&args.source), &args.include);
+    if let Some(filter) = &args.help_interrupt {
+        // the arguments are all interrupts, there is no listing
+        let names: Vec<String> = args.source.iter().cloned().chain(args.interrupts.iter().flatten().cloned()).collect();
+        let dirs = interrupt_csv::search_path(Path::new(""), &args.include);
+        let mut out = String::new();
+        return match interrupt_csv::help(&dirs, &names, filter, &mut out) {
+            Ok(0) => { eprintln!("[ERROR] no interrupt or function matches {:?}", filter); Err(format!("")) }
+            Ok(_) => { print!("{}", out); Ok(()) }
+            Err(err) => { eprintln!(); eprintln!("[ERROR] {}", err); eprintln!(); Err(format!("")) }
+        };
+    }
+    let source = args.source.clone().unwrap();
+
+    let dirs = interrupt_csv::search_path(Path::new(&source), &args.include);
     let (interrupts, functions) = match interrupt_csv::load_interrupts(&dirs, &args.interrupts.unwrap_or(vec![])) {
         Ok(res) => res,
         Err(err) => { eprintln!(); eprintln!("[ERROR] {}", err); eprintln!(); return Err(format!("")); }
     };
 
-    let out_file = args.output.unwrap_or(format!("{}.bin", Path::new(&args.source).file_stem().unwrap_or(OsStr::new("out")).to_str().unwrap_or("out")));
+    let out_file = args.output.unwrap_or(format!("{}.bin", Path::new(&source).file_stem().unwrap_or(OsStr::new("out")).to_str().unwrap_or("out")));
 
-    match File::open(&args.source) {
+    match File::open(&source) {
         Ok(mut file) => {
-            let name = String::from(Path::new(&args.source).file_stem().unwrap_or(OsStr::new("n/a")).to_str().unwrap_or("n/a"));
+            let name = String::from(Path::new(&source).file_stem().unwrap_or(OsStr::new("n/a")).to_str().unwrap_or("n/a"));
             let mut content = String::new();
             match file.read_to_string(&mut content) {
                 Ok(_) => {                    

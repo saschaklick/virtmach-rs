@@ -7,7 +7,7 @@ use std::{collections::HashMap, vec::Vec, slice, string::String};
 use std::{format};
 use num_literal_traits::NumLiteralTrait;
 
-use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ SoftInterruptFunction }, opcodes::OpCode};
+use crate::{ATOM_ID, Program, VAtomMut, VMAtom, VirtMach, interrupts::{ SoftInterruptFunction, InterruptTable, function_map }, opcodes::OpCode};
 
 #[derive(Debug)]
 pub enum ListingError <'a> {
@@ -96,6 +96,12 @@ impl VirtMach <'_> {
         VirtMach::compile_owned(name, listing, &interrupts, map)
     }                                       
     
+    /// Like compile, for the interrupts of interrupt_tables!, with the numbers they have there
+    pub fn compile_tables <'a> (name: &'a str, listing: &'a str, tables: &[InterruptTable]) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {
+        let (interrupts, map) = function_map(tables).map_err(|_| ListingError::IllegalInterrupt(0, "interrupt numbers used twice or too high"))?;
+        VirtMach::compile_owned(name, listing, &interrupts, map)
+    }
+
     /// Assembles a listing. With the basic feature, a source whose first non-empty line is a REM statement
     /// is compiled from BASIC into a listing first, see crate::basic.
     pub fn compile_owned <'a> (name: &'a str, listing: &'a str, interrupts: &[String], functions: HashMap::<String, (u8, VMAtom, usize, usize)>) -> Result<( Program<'a>, *const u8 ), ListingError<'a>> {

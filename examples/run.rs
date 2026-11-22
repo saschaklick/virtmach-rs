@@ -1,22 +1,20 @@
 use std::{env, thread, time};
 use virtmach::VirtMach;
-use virtmach::interrupts::{ self, SoftInterrupt, SoftInterruptFunction };
+use virtmach::interrupt_set;
 
 mod helpers;
+
+// The interrupts once, for the tables to compile with and for the vm to run with
+interrupt_set!(interrupts = [math, proc, time => _, periph => _]);
 
 fn main(){
     let delay = env::args().nth(2).and_then(|ms| ms.parse::<u64>().ok()).unwrap_or(250);
 
-    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
-        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-        (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
-        (interrupts::periph::NAME, interrupts::periph::FUNCTIONS.as_slice())
-    ].to_vec();
+    let tables = interrupts!(tables);
 
     let Some(source) = helpers::load_source("examples/programs/ci/count.txt", &tables) else { return };
 
-    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+    match VirtMach::compile_tables(source.name.as_str(), source.code.as_str(), &tables) {
         Ok(res) => {
             let program = res.0;
 
@@ -28,22 +26,10 @@ fn main(){
             let mut hw = helpers::SimPeripherals::default();
 
             loop {
-                // at their INDEX, the ones this example does not have are dummy
                 let ready = time.ready();
-                let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                    &mut interrupts::math::Interrupt {},
-                    &mut interrupts::proc::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut time,
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut hw,
-                    &mut interrupts::dummy::Interrupt {}
-                ];
+                interrupts!(let list, &mut time, &mut hw);
 
-                if ready { vm.run(1, interrupts); time.after_run(&vm); }
+                if ready { vm.run(1, list); time.after_run(&vm); }
 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 5);

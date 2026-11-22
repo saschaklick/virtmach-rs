@@ -2,7 +2,7 @@
 
 use std::{thread, time};
 use virtmach::{Runtime, VirtMach};
-use virtmach::{ RuntimeError, interrupts::{ self, SoftInterrupt, SoftInterruptFunction } };
+use virtmach::{ RuntimeError, interrupt_set };
 use bitmap_writer::{Bitmap, Writer, Frame, Style};
 
 mod helpers;
@@ -15,19 +15,16 @@ const H: usize = 40;
 
 static mut BUF: [u8;W * H / 8] = [0b00000000;W * H / 8];           
 
+// The interrupts once, for the tables to compile with and for the vm to run with. The `_` ones
+// are the variables of main, given where the list is made.
+interrupt_set!(interrupts = [math, proc, string, time => _, periph => _, surface => _]);
+
 fn main(){
-    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
-        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),
-        (interrupts::string::NAME, interrupts::string::FUNCTIONS.as_slice()),
-        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-        (interrupts::time::NAME, interrupts::time::FUNCTIONS.as_slice()),
-        (interrupts::periph::NAME, interrupts::periph::FUNCTIONS.as_slice())
-    ].to_vec();
+    let tables = interrupts!(tables);
 
     let Some(source) = helpers::load_source("examples/programs/gfx/starfield.txt", &tables) else { return };
 
-    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+    match VirtMach::compile_tables(source.name.as_str(), source.code.as_str(), &tables) {
         Ok(res) => {                    
             let program = res.0;
 
@@ -45,22 +42,11 @@ fn main(){
             let mut hw = helpers::SimPeripherals::default();
 
             loop {
-                // at their INDEX
                 let ready = time.ready();
-                let interrupts: &mut [&mut dyn SoftInterrupt] = &mut [
-                    &mut interrupts::math::Interrupt {},
-                    &mut interrupts::proc::Interrupt {},
-                    &mut interrupts::string::Interrupt {},
-                    &mut time,
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut interrupts::dummy::Interrupt {},
-                    &mut hw,
-                    &mut int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } }
-                ];
+                let mut surface = int_surface_term::IntSurface { w: W as i32, h: H as i32, clip: [0, 0, W as i32, H as i32 ], bitmap: unsafe { &mut BUF } };
+                interrupts!(let list, &mut time, &mut hw, &mut surface);
 
-                if ready { vm.run(4096, interrupts); time.after_run(&vm); }
+                if ready { vm.run(4096, list); time.after_run(&vm); }
 
                 let mut dashboard = String::new();
                 vm.write_dashboard(&mut dashboard, 0b111, 6);

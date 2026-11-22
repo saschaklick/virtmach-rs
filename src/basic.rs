@@ -45,7 +45,7 @@ use std::prelude::rust_2024::*;
 use std::{ format, vec, collections::{ HashMap, HashSet } };
 use pest::{ Parser as PestParser, error::LineColLocation, iterators::Pair, pratt_parser::{ Assoc, Op, PrattParser } };
 
-use crate::{ VMAtom, interrupts::SoftInterruptFunction };
+use crate::{ VMAtom, interrupts::{ InterruptTable, function_map } };
 
 /// Interrupt functions by "interrupt.function" name: (interrupt no, function no, arguments, returns)
 pub type Functions = HashMap<String, (u8, VMAtom, usize, usize)>;
@@ -1666,16 +1666,12 @@ pub fn compile(name: &str, src: &str, interrupts: &[String], functions: &Functio
 }
 
 
-/// Builds the interrupt list and function map from the built-in interrupt tables, in interrupt number order.
-pub fn functions(tables: &[(&str, &[SoftInterruptFunction])]) -> (Vec<String>, Functions) {
-    let mut functions = Functions::new();
-    for (int_no, (name, table)) in tables.iter().enumerate() {
-        for function in table.iter() {
-            functions.insert(format!("{}.{}", name, function.name), (int_no as u8, function.no, function.arguments, function.returns));
-        }
-    }
-    (tables.iter().map(|t| String::from(t.0)).collect(), functions)
+/// Builds the interrupt list and function map from the interrupt tables of interrupt_tables!,
+/// numbered as they are there.
+pub fn functions(tables: &[InterruptTable]) -> Result<(Vec<String>, Functions), String> {
+    function_map(tables)
 }
+
 
 #[cfg(test)]
 mod color_tests {

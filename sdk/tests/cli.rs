@@ -213,3 +213,36 @@ fn runtime_errors() {
     let out = run(RUNTIME, &[&dir.join("missing.bin").display().to_string()], &root());
     assert_fails(&out, "failed to open binary");
 }
+
+#[test]
+fn help_interrupt_filters_as_csv() {
+    let dir = tmp_dir("help_interrupt");
+    const HEADER: &str = "name,index,arguments,returns,description\n";
+    for bin in [COMPILER, BASIC] {
+        // everything: one header, then name and number of each built-in interrupt above its functions
+        let all = run(bin, &["--help-interrupt"], &root());
+        assert_ok(&all);
+        let all = stdout(&all);
+        assert!(all.starts_with(&format!("{}math,0\nand,0,2,1,", HEADER)));
+        assert_eq!(all.matches(HEADER).count(), 1);
+        assert!(all.contains("\ntime,3\nwait_for,0,2,0,"));
+        assert!(all.contains("\nsqr,10,1,1,\"Squareroot (num)->(res)\"\n"));
+
+        // an interrupt by name or number, then one function by name or number
+        let math = stdout(&run(bin, &["--help-interrupt=math"], &root()));
+        assert!(math.starts_with(&format!("{}math,0\n", HEADER)) && !math.contains("time") && math.lines().count() > 10);
+        assert_eq!(stdout(&run(bin, &["--help-interrupt=0"], &root())), math);
+        let sqr = stdout(&run(bin, &["--help-interrupt=math.sqr"], &root()));
+        assert_eq!(sqr, format!("{}math,0\nsqr,10,1,1,\"Squareroot (num)->(res)\"\n", HEADER));
+        assert_eq!(stdout(&run(bin, &["--help-interrupt=0.10"], &root())), sqr);
+
+        // a function in all interrupts, only the listed interrupts
+        assert!(stdout(&run(bin, &["--help-interrupt=.sqr"], &root())).starts_with(&format!("{}math,0\n", HEADER)));
+        let listed = stdout(&run(bin, &["--help-interrupt=", "proc", "time"], &root()));
+        assert!(listed.starts_with(&format!("{}proc,1\n", HEADER)) && listed.contains("\ntime,3\n") && !listed.contains("math"));
+
+        // nothing matches
+        assert_fails(&run(bin, &["--help-interrupt=math.nothing"], &root()), "no interrupt or function matches");
+        assert_fails(&run(bin, &["--help-interrupt=math", "joystick"], &dir), "could not find");
+    }
+}

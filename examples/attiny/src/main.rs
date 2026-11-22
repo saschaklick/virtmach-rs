@@ -29,7 +29,8 @@
 //! vm right away. END and runtime errors stop it.
 
 use panic_halt as _;
-use virtmach::{ VirtMach, Program, Runtime, interrupts::{ SoftInterrupt, math } };
+use virtmach::{ VirtMach, Program, Runtime, interrupt_list };
+#[cfg(not(all(feature = "proc", feature = "time")))]
 use virtmach::interrupts::dummy;
 #[cfg(feature = "proc")]
 use virtmach::interrupts::proc;
@@ -88,36 +89,29 @@ fn main() -> ! {
     let mut vm = VirtMach::<Flash>::with_storage();
     vm.load_program(Program { source: 0, id: "blink", data: FlashBytes::of(&PROGRAM) });
 
-    // at their INDEX: math, proc, string, time, four unused slots, periph, surface
-    let (mut math, mut proc, mut string, mut time, mut unused4, mut unused5, mut unused6, mut unused7, mut periph, mut surface) = (
-        math::Interrupt {},
-        #[cfg(feature = "proc")]
-        proc::Interrupt {},
-        #[cfg(not(feature = "proc"))]
-        dummy::Interrupt {},
-        dummy::Interrupt {},
-        #[cfg(feature = "time")]
-        int_time::IntTime { clock: &clock, schedule: Schedule::new(&clock), tick: &tick },
-        #[cfg(not(feature = "time"))]
-        dummy::Interrupt {},
-        dummy::Interrupt {},
-        dummy::Interrupt {},
-        dummy::Interrupt {},
-        dummy::Interrupt {},
-        int_periph::IntPeriph {
-            #[cfg(feature = "gpio")]
-            gpio: int_gpio::IntGpio { port: &portb },
-            #[cfg(feature = "pwm")]
-            pwm: int_pwm::IntPwm::new(dp.TC0, &portb),
-            #[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
-            uart: int_uart::IntUart { port: &portb },
-            #[cfg(feature = "i2c")]
-            i2c: int_i2c::IntI2c::new(&portb),
-            _lifetime: core::marker::PhantomData
-        },
-        dummy::Interrupt {},
-    );
-    let interrupts: &mut [&mut dyn SoftInterrupt<Flash>] = &mut [&mut math, &mut proc, &mut string, &mut time, &mut unused4, &mut unused5, &mut unused6, &mut unused7, &mut periph, &mut surface];
+    // the interrupts of the features, the others are not available and dummy
+    #[cfg(feature = "proc")]
+    let mut proc = proc::Interrupt {};
+    #[cfg(not(feature = "proc"))]
+    let mut proc = dummy::Interrupt {};
+    #[cfg(feature = "time")]
+    let mut time = int_time::IntTime { clock: &clock, schedule: Schedule::new(&clock), tick: &tick };
+    #[cfg(not(feature = "time"))]
+    let mut time = dummy::Interrupt {};
+    let mut periph = int_periph::IntPeriph {
+        #[cfg(feature = "gpio")]
+        gpio: int_gpio::IntGpio { port: &portb },
+        #[cfg(feature = "pwm")]
+        pwm: int_pwm::IntPwm::new(dp.TC0, &portb),
+        #[cfg(any(feature = "uart_tx", feature = "uart_rx"))]
+        uart: int_uart::IntUart { port: &portb },
+        #[cfg(feature = "i2c")]
+        i2c: int_i2c::IntI2c::new(&portb),
+        _lifetime: core::marker::PhantomData
+    };
+
+    // at their INDEX, the slots of string and surface and the unused ones are dummy
+    interrupt_list!(let interrupts = [math, proc => proc, time => time, periph => periph]);
 
     loop {
         vm.run(0, interrupts);

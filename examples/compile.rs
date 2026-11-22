@@ -1,17 +1,13 @@
-use virtmach::{ VirtMach, interrupts::{ self, SoftInterruptFunction } };
+use virtmach::{ VirtMach, interrupt_tables };
 
 mod helpers;
 
 fn main(){
-    let tables: Vec<(&str, &[SoftInterruptFunction])> = [
-        (interrupts::proc::NAME, interrupts::proc::FUNCTIONS.as_slice()),
-        (interrupts::math::NAME, interrupts::math::FUNCTIONS.as_slice()),        
-        (interrupts::surface::NAME, interrupts::surface::FUNCTIONS.as_slice()),
-    ].to_vec();
+    let tables = interrupt_tables!([proc, math, surface]);
 
     let Some(source) = helpers::load_source("examples/programs/ci/count.txt", &tables) else { return };
 
-    match VirtMach::compile(source.name.as_str(), source.code.as_str(), tables) {
+    match VirtMach::compile_tables(source.name.as_str(), source.code.as_str(), &tables) {
         Ok(res) => {
             let program = res.0;
             if !source.variables.is_empty() {
