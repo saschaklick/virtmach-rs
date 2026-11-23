@@ -4,10 +4,11 @@ REM sin and cos return -MAX..MAX, math.scale multiplies by them.
 REM The radii are kept in 1/256 pixels and only the final point is rounded,
 REM so the ellipse keeps its shape while it turns.
 REM HALT pauses the vm once per frame
+DEFINT A-Z
 REQ surface, math
 W, H = surface.get_size()
 surface.set_clip(0, 0, W, H)
-CX = W / 2 : CY = H / 2
+CX = W \ 2 : CY = H \ 2
 RX = 19 * 256 : RY = 9 * 256
 T = 0
 WHILE 1

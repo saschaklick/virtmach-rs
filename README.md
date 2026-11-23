@@ -151,6 +151,77 @@ The instructions are all three characters long and followed by at most one argum
     jps result_was_negative_after_neg
 ```
 
+## BASIC compiler
+
+With the `basic` feature `VirtMach::compile` also accepts a small BASIC dialect, which is compiled into a listing first. A file is BASIC if its first non-empty line starts with `REM`. [BASIC.md](BASIC.md) is the language reference, written so that a programmer or an AI can write correct programs from it, and it is the document to keep in sync with every change of the dialect. This section is about the implementation.
+
+### Where things are
+
+|What|Where|
+|--|--|
+|Grammar (pest)|`src/basic.pest`|
+|Compiler, with a language summary at the top|`src/basic.rs`|
+|Color encoding, color literals and the VGA palette|`src/color.rs`|
+|BASIC-only front end, it also writes the listing (`-l`)|`sdk/src/bin/basic.rs`|
+|Interrupt function definitions (`.csv`, written by `gen-csv`)|`include/`|
+|Example programs and the tests' programs|`examples/programs/`, see `examples/README.md`|
+
+### How it compiles
+
+- **Variables** live in registers `r0..r11`, further ones and all arrays in memory. `r12` and `r13` evaluate expressions. Locals of a `SUB` or `FUNCTION` are static and prefixed with its name, which is why recursion is rejected.
+- **Strings** are one byte indices into the `#db` entries of the listing. Identical literals share an entry, every `STR$`, `MID$`, `LEFT$`, `RIGHT$` and string `+` owns one dynamic entry, together at most 255. Dynamic entries are written by the `string` interrupt and need the VM's `alloc` feature.
+- **Operators** other than `+` and `-` call the `math` interrupt (`*` `\` `MOD` `^`, shifts, logic). `AND`, `OR` and `NOT` in conditions are compiled as short-circuit jumps instead.
+- **Types** are decided by name, the parser folds declarations (`AS STRING`, `DEFSTR`) into the names (`X$`), so the code generator only looks at the `$`.
+- **`CONST`** is folded while parsing, so are the sizes of arrays. A color literal that is a `CONST` keeps its color nature for the drawing statements.
+- **`DATA`** of the whole program is an array `_DATA` that the program fills when it starts, a hidden pointer `_DATAPTR` walks it. Strings are stored as their index. Reading past the end divides by zero in the `math` interrupt, which stops the VM with an interrupt error.
+- **`PEEK` and `POKE`** are `loa` and `sto` with the address in a register (or immediate for constants), so the VM's own memory check is the only check.
+- **`RANDOMIZE n`** calls `math.seed`, `SLEEP n` calls `time.wait_for(n, 0)`.
+- **Interrupt calls** are resolved by name against the `.csv` files of the loaded interrupts, which also gives the argument and result counts.
+- **Hidden variables** with a leading `_` (`_PX`, `_PY`, `_GX` and so on) hold the state of the console and drawing statements. They are visible in every procedure.
+
+### Drawing and console statements
+
+All of them compile to calls of the `surface` interrupt:
+
+|Statement|Calls|
+|--|--|
+|`COLOR`|`set_color(1, fg)` and `set_color(0, bg)` for the text, and remembers both colors|
+|`PSET`, `PRESET`|`draw_pixel`|
+|`LINE`|`draw_line`, `draw_rect` (`B`), `fill_rect` (`BF`)|
+|`VIEW`|`set_clip` and `get_size`|
+|`CLS`|`clear`|
+|`PRINT`|`draw_text`, with the string interrupt's `get_length`|
+
+The color arguments of the surface functions are color atoms: from the highest bit down alpha (the sign bit, so alpha 0 is a positive number and invisible), then RGB232, RGB555 or RGB888 depending on the atom size. The compiler turns a constant palette index into such an atom with `Color::vga`, which reads `VGA_PALETTE`, the default palette of VGA mode 13h as 8-bit RGB. Surface implementations decode the atoms with `Color::to_rgba`.
+
+`PRINT` assumes the surface's base font to be 3 pixels wide with 1 pixel between characters and 4 pixels high with 1 pixel between lines, so a character advances the cursor by 4, a line by 5 and a `,` zone of 14 characters is 56 pixels (`CHAR_WIDTH`, `LINE_HEIGHT` and `ZONE_WIDTH` in `src/basic.rs`). It never asks the surface for a text size and does not scroll.
+
+### The `basic_console` flag
+
+The text console (`PRINT`, `?`, `LOCATE`, `WIDTH`, `VIEW PRINT`) is only compiled when the crate is built with an optional cfg flag, otherwise these statements are compile errors that say they are not supported. The drawing statements are always available.
+
+```
+RUSTFLAGS='--cfg basic_console="surface"' cargo build --features basic
+```
+
+`LOCATE`, `WIDTH` and `VIEW PRINT` are then accepted and ignored, the surface has no text window. `INPUT`, `INKEY$` and the statements the surface cannot do (`CIRCLE`, `PAINT`, sound and so on) are errors in every build. The flag is declared for `unexpected_cfgs` in the `Cargo.toml` files. Changing `RUSTFLAGS` rebuilds everything, use a separate `CARGO_TARGET_DIR` per configuration.
+
+### Tests
+
+`cargo test` runs the compiler tests of `sdk/src/bin/basic.rs` (they run the programs of `examples/programs/ci/` in the VM against a recording surface), the CLI tests of `sdk/tests/cli.rs` and the library tests.
+
+- `ci_programs_compile` compiles every program of `examples/programs/ci/`, a new file is picked up by itself.
+- The programs of `examples/programs/ci/invalid/` must fail to compile. Their first line, `REM expect: <part of the error message>`, names the error. They are checked in the compiler and through the `basic` and `compiler` binaries, so they must fail in every build.
+- Programs and tests that only exist with the console flag are in `examples/programs/console/` and gated with `#[cfg(basic_console = "surface")]`, the tests that expect the console statements to be rejected with `#[cfg(not(...))]`. Run both configurations:
+
+```
+cargo test
+RUSTFLAGS='--cfg basic_console="surface"' CARGO_TARGET_DIR=target-surface cargo test
+```
+
+- The surfaces of the SDK (`sdk/src/lib/int_surface_term.rs`, `int_surface_sdl2.rs`) decode color atoms, the terminal one has unit tests, the SDL2 one needs a window and is only compiled.
+- `math.random` has one generator for all threads, so tests that depend on its values take turns (`RANDOM_LOCK`).
+
 ## Calling convention
 
 While it is up to each implementation of a software interrupt handler how it receives and sends back atoms to the processor, the suggested calling convention - which all internal interrupts adhere to - expect the correct number arguments per function to be push'ed onto the stack. The interrupt function will pop the values of the stack and push the result atom(s) onto the stack for the processor to retrieve.

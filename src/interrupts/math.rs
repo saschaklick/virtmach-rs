@@ -10,7 +10,7 @@ pub const NAME: &str = "math";
 
 pub const INDEX: u8 = 0;
 
-pub const FUNCTIONS: [SoftInterruptFunction;18] = [
+pub const FUNCTIONS: [SoftInterruptFunction;19] = [
     SoftInterruptFunction { no:  0, name: "and", arguments: 2, returns: 1, help: "Logical AND (num0,num1)->(res)" },
     SoftInterruptFunction { no:  1, name: "or",  arguments: 2, returns: 1, help: "Logical OR (num0,num1)->(res)" },
     SoftInterruptFunction { no:  2, name: "xor", arguments: 2, returns: 1, help: "Logical XOR (num0,num1)->(res)" },
@@ -22,7 +22,8 @@ pub const FUNCTIONS: [SoftInterruptFunction;18] = [
     SoftInterruptFunction { no:  8, name: "mod", arguments: 2, returns: 1, help: "Modulo (dividend,divisor)->(res)" },
     SoftInterruptFunction { no:  9, name: "pow", arguments: 2, returns: 1, help: "Exponentiation (base, exponent)->(res)" },
     SoftInterruptFunction { no: 10, name: "sqr", arguments: 1, returns: 1, help: "Squareroot (num)->(res)" },
-    SoftInterruptFunction { no: 11, name: "random", arguments: 2, returns: 1, help: "Generate random value in provided value range (start,end)->(res)" },
+    SoftInterruptFunction { no: 11, name: "random", arguments: 2, returns: 1, help: "Generate random value in provided value range (start,end)->(res)" },    
+    SoftInterruptFunction { no: 12, name: "seed", arguments: 1, returns: 0, help: "Seed the random generator, the same seed gives the same values (seed)->()" },
     SoftInterruptFunction { no: 20, name: "sin",        arguments: 1, returns: 1, help: "Sine, -MAX..MAX for -1..1 (angle)->(res)" },
     SoftInterruptFunction { no: 21, name: "cos",        arguments: 1, returns: 1, help: "Cosine, -MAX..MAX for -1..1 (angle)->(res)" },
     SoftInterruptFunction { no: 22, name: "atan2",      arguments: 2, returns: 1, help: "Angle of the vector (y,x)->(angle)" },
@@ -125,6 +126,8 @@ impl <S: Storage> SoftInterrupt<S> for Interrupt {
             }            
             #[cfg(feature = "int_math_random")]
             11 => { math_random::call(vm); }
+            #[cfg(feature = "int_math_random")]
+            12 => { math_random::seed(vm); }
             #[cfg(feature = "int_math_trig")]
             20..=25 => { math_trig::call(vm, op); }
             _ => { vm.error = RuntimeError::UnimplementedInterruptFunc; }

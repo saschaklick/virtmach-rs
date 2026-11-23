@@ -1,0 +1,2 @@
+REM expect: type DOUBLE
+DIM X AS DOUBLE

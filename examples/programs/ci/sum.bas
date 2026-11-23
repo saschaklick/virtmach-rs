@@ -1,5 +1,6 @@
 REM Sums and a factorial with FOR/NEXT loops
 REM After END: SUM = 55, FACT = 5040, EVENS = 30
+DEFINT A-Z
 SUM = 0
 FOR I = 1 TO 10
   SUM = SUM + I

@@ -3,19 +3,24 @@
 WHITESPACE = _{ " " | "\t" }
 
 program = { SOI ~ (line ~ NEWLINE)* ~ line? ~ EOI }
-line    = { line_no? ~ label_def? ~ (comment | statements ~ (":"? ~ comment)?)? }
+line    = { line_no? ~ label_def? ~ (comment | comment_line | statements ~ (":"? ~ comment)?)? }
 label_def = @{ ident ~ ":" }
 line_no = @{ ASCII_DIGIT+ }
+// REM and ' comment out the rest of the line, also behind statements. A string is one token, so
+// a ' in it is no comment. A ; is no comment, it separates the items of PRINT.
 comment = @{ (^"REM" ~ !ident_char | "'") ~ (!NEWLINE ~ ANY)* }
+// # comments out a whole line, only where a statement could start, behind it is a color
+comment_line = @{ "#" ~ (!NEWLINE ~ ANY)* }
 
 statements = _{ statement ~ (":" ~ statement)* }
 statement  = _{ block_if | elseif_stmt | else_stmt | end_if | select_stmt | case_stmt | end_select
                | for_stmt | next_stmt | while_stmt | wend_stmt | do_stmt | loop_stmt
-               | sub_def | function_def | end_sub | end_function | shared_stmt | def_fn | req_stmt | simple_stmt }
+               | sub_def | function_def | end_sub | end_function | shared_stmt | data_stmt | type_stmt | end_type
+               | deftype_stmt | def_fn | req_stmt | const_stmt | declare_stmt | option_stmt | simple_stmt }
 
 // statements allowed inside a single-line IF
 simple_stmts = { simple_stmt ~ (":" ~ simple_stmt)* }
-simple_stmt  = _{ if_stmt | goto_stmt | gosub_stmt | on_stmt | return_stmt | exit_stmt | end_stmt | halt_stmt
+simple_stmt  = _{ if_stmt | console_stmt | poke_stmt | read_stmt | restore_stmt | randomize_stmt | sleep_stmt | goto_stmt | gosub_stmt | on_stmt | return_stmt | exit_stmt | end_stmt | halt_stmt
                 | stop_stmt | dim_stmt | swap_stmt | call_sub | multi_assign | call_stmt | let_stmt | sub_call }
 
 block_if     = { kw_if ~ expr ~ kw_then ~ &(NEWLINE | EOI | comment) }
@@ -51,10 +56,65 @@ stop_stmt    = { kw_stop }
 swap_stmt    = { kw_swap ~ lvalue ~ "," ~ lvalue }
 sub_def      = { kw_sub ~ ident ~ ("(" ~ params? ~ ")")? }
 function_def = { kw_function ~ ident ~ ("(" ~ params? ~ ")")? }
-params       = { ident ~ ("," ~ ident)* }
+params       = { param ~ ("," ~ param)* }
+param        = { ident ~ as_clause? }
+// Data types: only INTEGER (no suffix or %) and STRING ($) exist. Everything else parses, so that
+// basic.rs can reject it with a message that names the type.
+as_clause    = { kw_as ~ type_name ~ ("*" ~ (number | ident))? }
+type_name    = @{ ident_raw }
+type_stmt    = { kw_type ~ ident }
+end_type     = { kw_end ~ kw_type }
+deftype_stmt = { deftype_kw ~ letter_range ~ ("," ~ letter_range)* }
+deftype_kw   = @{ ^"DEF" ~ (^"INT" | ^"LNG" | ^"SNG" | ^"DBL" | ^"STR") ~ !ident_char }
+letter_range = @{ ASCII_ALPHA ~ ("-" ~ ASCII_ALPHA)? }
 end_sub      = { kw_end ~ kw_sub }
 end_function = { kw_end ~ kw_function }
-shared_stmt  = { kw_shared ~ ident ~ ("," ~ ident)* }
+// CONST is folded by basic.rs, DECLARE only checks the definition that follows, OPTION BASE sets the first array index
+const_stmt   = { kw_const ~ const_item ~ ("," ~ const_item)* }
+const_item   = { ident ~ "=" ~ expr }
+declare_stmt = { kw_declare ~ (kw_sub | kw_function) ~ ident ~ ("(" ~ params? ~ ")")? }
+option_stmt  = { kw_option ~ base_word ~ number }
+base_word    = @{ ^"BASE" ~ !ident_char }
+// Console and drawing statements. They are all parsed, basic.rs rejects the ones the dialect does not have
+// and, unless it is built with --cfg basic_console="surface", the text console (PRINT, LOCATE, WIDTH, VIEW PRINT).
+console_stmt = _{ print_stmt | cls_stmt | locate_stmt | color_stmt | screen_stmt | width_stmt | view_print_stmt | view_stmt
+               | pset_stmt | line_input_stmt | line_stmt | input_stmt | unsupported_stmt }
+print_stmt   = { print_kw ~ print_body? }
+print_kw     = _{ kw_print | "?" }
+print_body   = { using_clause | print_list }
+using_clause = { kw_using ~ expr ~ (";" ~ print_list?)? }
+print_list   = { print_item+ }
+print_item   = { print_sep | expr ~ print_sep? }
+print_sep    = { ";" | "," }
+opt_arg      = { expr? }
+cls_stmt     = { kw_cls ~ expr? }
+locate_stmt  = { kw_locate ~ opt_arg ~ ("," ~ opt_arg)* }
+color_stmt   = { kw_color ~ opt_arg ~ ("," ~ opt_arg)* }
+screen_stmt  = { kw_screen ~ opt_arg ~ ("," ~ opt_arg)* }
+width_stmt   = { kw_width ~ opt_arg ~ ("," ~ opt_arg)* }
+view_print_stmt = { kw_view ~ kw_print ~ (expr ~ kw_to ~ expr)? }
+view_stmt    = { kw_view ~ kw_screen? ~ (coord ~ "-" ~ coord)? ~ ("," ~ opt_arg ~ ("," ~ opt_arg)?)? }
+coord        = { kw_step? ~ "(" ~ expr ~ "," ~ expr ~ ")" }
+pset_stmt    = { (kw_pset | kw_preset) ~ coord ~ ("," ~ expr)? }
+line_stmt    = { kw_line ~ coord? ~ "-" ~ coord ~ ("," ~ opt_arg ~ ("," ~ box_kind? ~ ("," ~ expr)?)?)? }
+box_kind     = @{ (^"BF" | ^"B") ~ !ident_char }
+line_input_stmt = { kw_line ~ kw_input ~ rest_of_line }
+input_stmt   = { kw_input ~ rest_of_line }
+unsupported_stmt = { unsupported_kw ~ rest_of_line }
+unsupported_kw = @{ (^"CIRCLE" | ^"PAINT" | ^"DRAW" | ^"GET" | ^"PUT" | ^"WINDOW" | ^"PALETTE" | ^"PLAY" | ^"SOUND" | ^"BEEP" | ^"LPRINT") ~ !ident_char }
+rest_of_line = @{ (!NEWLINE ~ ANY)* }
+
+// DATA runs to the end of the line, its items are numbers, quoted texts or bare texts, basic.rs sorts them out
+data_stmt    = { kw_data ~ data_item ~ ("," ~ data_item)* }
+data_item    = _{ string | data_raw }
+data_raw     = @{ (!("," | NEWLINE | "'") ~ ANY)* }
+poke_stmt    = { kw_poke ~ expr ~ "," ~ expr }
+read_stmt    = { kw_read ~ lvalue ~ ("," ~ lvalue)* }
+restore_stmt = { kw_restore ~ target? }
+randomize_stmt = { kw_randomize ~ expr? }
+sleep_stmt   = { kw_sleep ~ expr? }
+shared_stmt  = { kw_shared ~ shared_item ~ ("," ~ shared_item)* }
+shared_item  = { ident ~ as_clause? }
 req_stmt     = { kw_req ~ int_name ~ ("," ~ int_name)* }
 int_name     = @{ ident_raw }
 def_fn       = { kw_def ~ ident ~ ("(" ~ params? ~ ")")? ~ "=" ~ expr }
@@ -63,8 +123,8 @@ sub_call     = { ident ~ (args | "(" ~ ")")? }
 return_stmt  = { kw_return }
 end_stmt     = { kw_end }
 halt_stmt    = { kw_halt }
-dim_stmt     = { kw_dim ~ dim_item ~ ("," ~ dim_item)* }
-dim_item     = { ident ~ "(" ~ number ~ ")" }
+dim_stmt     = { kw_dim ~ kw_shared? ~ dim_item ~ ("," ~ dim_item)* }
+dim_item     = { ident ~ ("(" ~ expr ~ ")")? ~ as_clause? }
 multi_assign = { lvalue ~ ("," ~ lvalue)+ ~ "=" ~ int_call }
 call_stmt    = { int_call }
 let_stmt     = { kw_let? ~ lvalue ~ "=" ~ expr }
@@ -74,16 +134,21 @@ line_ref     = @{ ASCII_DIGIT+ }
 // expressions, precedence is resolved by the Pratt parser in basic.rs
 expr    = { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
 prefix  = _{ op_neg | op_not }
-infix   = _{ op_add | op_sub | op_mul | op_div | op_mod | op_pow | op_shl | op_shr
-           | op_ne | op_le | op_ge | op_lt | op_gt | op_eq | op_and | op_or | op_xor }
-primary = _{ color | number | string | int_call | call | ident | "(" ~ expr ~ ")" }
+infix   = _{ op_add | op_sub | op_mul | op_div | op_idiv | op_mod | op_pow | op_shl | op_shr
+           | op_ne | op_le | op_ge | op_lt | op_gt | op_eq | op_and | op_or | op_xor | op_eqv | op_imp }
+primary = _{ color | float_lit | suffixed_number | number | string | int_call | call | ident | "(" ~ expr ~ ")" }
 
 int_call = { int_func ~ "(" ~ args? ~ ")" }
 int_func = @{ ident_raw ~ "." ~ ident_raw }
 call     = { ident ~ "(" ~ args? ~ ")" }
 args     = { expr ~ ("," ~ expr)* }
 color    = @{ "#" ~ (ASCII_HEX_DIGIT{8} | ASCII_HEX_DIGIT{6} | ASCII_HEX_DIGIT{4} | ASCII_HEX_DIGIT{3}) ~ !ident_char }
-number   = @{ ^"0x" ~ ASCII_HEX_DIGIT+ | ASCII_DIGIT+ }
+// floating point literals and number type suffixes are rejected by basic.rs, % (INTEGER) is fine
+float_lit = @{ (ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* ~ exponent? | "." ~ ASCII_DIGIT+ ~ exponent? | ASCII_DIGIT+ ~ exponent) ~ num_suffix? }
+exponent  = _{ (^"E" | ^"D") ~ ("+" | "-")? ~ ASCII_DIGIT+ }
+num_suffix = _{ "%" | "&" | "!" | "#" }
+suffixed_number = @{ ASCII_DIGIT+ ~ num_suffix }
+number   = @{ (^"0x" | ^"&H") ~ ASCII_HEX_DIGIT+ | ^"&O" ~ ASCII_OCT_DIGIT+ | ^"&B" ~ ASCII_BIN_DIGIT+ | ASCII_DIGIT+ }
 string   = @{ "\"" ~ ("\"\"" | !("\"" | NEWLINE) ~ ANY)* ~ "\"" }
 
 op_neg = { "-" }
@@ -91,6 +156,7 @@ op_add = { "+" }
 op_sub = { "-" }
 op_mul = { "*" }
 op_div = { "/" }
+op_idiv = { "\\" }
 op_pow = { "^" }
 op_ne  = { "<>" }
 op_le  = { "<=" }
@@ -104,16 +170,23 @@ op_mod = @{ ^"MOD" ~ !ident_char }
 op_and = @{ ^"AND" ~ !ident_char }
 op_or  = @{ ^"OR"  ~ !ident_char }
 op_xor = @{ ^"XOR" ~ !ident_char }
+op_eqv = @{ ^"EQV" ~ !ident_char }
+op_imp = @{ ^"IMP" ~ !ident_char }
 op_not = @{ ^"NOT" ~ !ident_char }
 
-ident      = @{ !keyword ~ ident_raw ~ "$"? }
+ident      = @{ !keyword ~ ident_raw ~ num_suffix_or_str? }
+num_suffix_or_str = _{ "$" | "%" | "&" | "!" | "#" }
 ident_raw  = _{ ASCII_ALPHA ~ ident_char* }
 ident_char = _{ ASCII_ALPHANUMERIC | "_" }
 keyword    = _{ (^"ENDIF" | ^"END" | ^"IF" | ^"THEN" | ^"ELSEIF" | ^"ELSE" | ^"FOR" | ^"TO" | ^"STEP" | ^"NEXT"
                | ^"WHILE" | ^"WEND" | ^"GOTO" | ^"GOSUB" | ^"RETURN" | ^"HALT" | ^"DIM" | ^"LET"
                | ^"REM" | ^"MOD" | ^"AND" | ^"OR" | ^"XOR" | ^"NOT" | ^"SELECT" | ^"CASE" | ^"IS"
                | ^"DO" | ^"LOOP" | ^"UNTIL" | ^"ON" | ^"EXIT" | ^"STOP" | ^"SWAP" | ^"SUB" | ^"FUNCTION"
-               | ^"CALL" | ^"SHARED" | ^"DEF" | ^"REQ") ~ !ident_char }
+               | ^"CALL" | ^"SHARED" | ^"DEF" | ^"REQ" | ^"AS" | ^"TYPE" | ^"CONST" | ^"DECLARE" | ^"OPTION" | ^"EQV" | ^"IMP" | ^"DATA" | ^"READ" | ^"RESTORE" | ^"RANDOMIZE" | ^"SLEEP"
+               | ^"POKE" | ^"PRINT" | ^"USING" | ^"CLS" | ^"LOCATE" | ^"COLOR" | ^"SCREEN" | ^"WIDTH" | ^"VIEW" | ^"PSET" | ^"PRESET" | ^"LINE"
+               | ^"CIRCLE" | ^"PAINT" | ^"DRAW" | ^"GET" | ^"PUT" | ^"WINDOW" | ^"PALETTE" | ^"PLAY" | ^"SOUND" | ^"BEEP" | ^"LPRINT") ~ !ident_char
+             // INPUT$ and INKEY$ are names the compiler rejects with a message of their own
+             | ^"INPUT" ~ !ident_char ~ !"$" }
 
 kw_if     = @{ ^"IF" ~ !ident_char }
 kw_then   = @{ ^"THEN" ~ !ident_char }
@@ -149,3 +222,26 @@ kw_call   = @{ ^"CALL" ~ !ident_char }
 kw_shared = @{ ^"SHARED" ~ !ident_char }
 kw_def    = @{ ^"DEF" ~ !ident_char }
 kw_req    = @{ ^"REQ" ~ !ident_char }
+kw_as    = @{ ^"AS" ~ !ident_char }
+kw_type  = @{ ^"TYPE" ~ !ident_char }
+kw_const   = @{ ^"CONST" ~ !ident_char }
+kw_declare = @{ ^"DECLARE" ~ !ident_char }
+kw_option  = @{ ^"OPTION" ~ !ident_char }
+kw_data    = @{ ^"DATA" ~ !ident_char }
+kw_read    = @{ ^"READ" ~ !ident_char }
+kw_restore = @{ ^"RESTORE" ~ !ident_char }
+kw_randomize = @{ ^"RANDOMIZE" ~ !ident_char }
+kw_sleep   = @{ ^"SLEEP" ~ !ident_char }
+kw_print   = @{ ^"PRINT" ~ !ident_char }
+kw_using   = @{ ^"USING" ~ !ident_char }
+kw_cls     = @{ ^"CLS" ~ !ident_char }
+kw_locate  = @{ ^"LOCATE" ~ !ident_char }
+kw_color   = @{ ^"COLOR" ~ !ident_char }
+kw_screen  = @{ ^"SCREEN" ~ !ident_char }
+kw_width   = @{ ^"WIDTH" ~ !ident_char }
+kw_view    = @{ ^"VIEW" ~ !ident_char }
+kw_pset    = @{ ^"PSET" ~ !ident_char }
+kw_preset  = @{ ^"PRESET" ~ !ident_char }
+kw_line    = @{ ^"LINE" ~ !ident_char }
+kw_input   = @{ ^"INPUT" ~ !ident_char ~ !"$" }
+kw_poke    = @{ ^"POKE" ~ !ident_char }

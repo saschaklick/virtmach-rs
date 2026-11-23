@@ -1,6 +1,7 @@
 REM Sends bytes and a text over uart 0, the simulated uart loops them back, so the
 REM program receives them again and reads them back one by one.
 REM After END: SENT = 3, WAITING = 7, SUM = 370 (16+32+48+64 and "Hi!"), NONE = -1
+DEFINT A-Z
 REQ periph, time
 periph.uart_setup(0, 11520, 0)
 FOR I = 1 TO 4

@@ -1,5 +1,6 @@
 REM Counts the primes below LIMIT by trial division
 REM After END: COUNT = 15, LAST = 47
+DEFINT A-Z
 LIMIT = 50
 COUNT = 0
 FOR N = 2 TO LIMIT - 1

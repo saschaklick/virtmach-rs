@@ -4,12 +4,13 @@ REM Hits near a paddle's edge send the ball off steeper, which the other
 REM paddle may not catch in time. Each side's score is shown at the top
 REM center of its half, both scores start over once a side reaches 10.
 REM STR$ turns the scores into dynamic strings, which need the vm's alloc feature.
+DEFINT A-Z
 REQ surface, math, string
 
 W, H = surface.get_size()
 surface.set_clip(0, 0, W, H)
 PH = 5
-LY = H / 2 - PH / 2 : RY = LY
+LY = H \ 2 - PH \ 2 : RY = LY
 SL = 0 : SR = 0
 GOSUB 1000
 
@@ -20,11 +21,11 @@ WHILE 1
   IF BY >= H - 1 THEN BY = H - 1 : DY = -ABS(DY)
 
   REM the paddle the ball is heading for moves towards it once it is on its half
-  IF DX < 0 AND BX < W / 2 THEN
+  IF DX < 0 AND BX < W \ 2 THEN
     IF BY < LY + 2 AND LY > 0 THEN LY = LY - 1
     IF BY > LY + 2 AND LY < H - PH THEN LY = LY + 1
   END IF
-  IF DX > 0 AND BX >= W / 2 THEN
+  IF DX > 0 AND BX >= W \ 2 THEN
     IF BY < RY + 2 AND RY > 0 THEN RY = RY - 1
     IF BY > RY + 2 AND RY < H - PH THEN RY = RY + 1
   END IF
@@ -45,21 +46,21 @@ WHILE 1
   REM draw the net, paddles, ball and the scores centered on each half
   surface.clear(0)
   FOR T = 0 TO H - 1 STEP 4
-    surface.draw_line(W / 2, T, W / 2, T + 1, 1)
+    surface.draw_line(W \ 2, T, W \ 2, T + 1, 1)
   NEXT T
   surface.fill_rect(2, LY, 1, PH, 1)
   surface.fill_rect(W - 3, RY, 1, PH, 1)
   surface.fill_rect(BX, BY, 1, 1, 1)
-  L$ = STR$(SL) : R$ = STR$(SR)
+  L$ = MID$(STR$(SL), 2) : R$ = MID$(STR$(SR), 2)
   T, TH = surface.get_text_size(0, L$)
-  surface.draw_text(W / 4 - T / 2, 1, 0, L$)
+  surface.draw_text(W \ 4 - T \ 2, 1, 0, L$)
   T, TH = surface.get_text_size(0, R$)
-  surface.draw_text(W * 3 / 4 - T / 2, 1, 0, R$)
+  surface.draw_text(W * 3 \ 4 - T \ 2, 1, 0, R$)
   HALT
 WEND
 
 1000 REM serve from the middle in a random direction
-1010 BX = W / 2 : BY = math.random(4, H - 5)
+1010 BX = W \ 2 : BY = math.random(4, H - 5)
 1020 DX = math.random(0, 1) * 2 - 1
 1030 DY = math.random(0, 1) * 2 - 1
 1040 RETURN

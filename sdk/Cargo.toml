@@ -28,3 +28,5 @@ csv = "1.4.0"
 log = "0.4.29"
 simple_logger = "5.1.0"
 virtmach = { path = "..", features = ["compile"] }
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(basic_console, values("surface"))'] }

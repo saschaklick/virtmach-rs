@@ -1,5 +1,6 @@
 REM Bouncing box inside a frame, uses the surface interrupt
 REM HALT pauses the vm once per frame
+DEFINT A-Z
 REQ surface
 W, H = surface.get_size()
 surface.set_clip(0, 0, W, H)

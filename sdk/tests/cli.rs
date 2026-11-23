@@ -246,3 +246,25 @@ fn help_interrupt_filters_as_csv() {
         assert_fails(&run(bin, &["--help-interrupt=math", "joystick"], &dir), "could not find");
     }
 }
+
+#[test]
+fn invalid_programs_are_rejected_by_both_front_ends() {
+    // the programs of ci/invalid name their error in a first line REM expect:, both binaries
+    // must print it, exit with a failure and leave no binary behind
+    let dir = tmp_dir("invalid_programs");
+    let mut files: Vec<PathBuf> = fs::read_dir(root().join("examples/programs/ci/invalid")).unwrap()
+        .map(|entry| entry.unwrap().path()).filter(|path| path.extension().is_some_and(|e| e == "bas")).collect();
+    files.sort();
+    assert!(files.len() >= 10, "{:?}", files);
+    for file in files {
+        let src = fs::read_to_string(&file).unwrap();
+        let expected = src.lines().next().and_then(|l| l.strip_prefix("REM expect:")).unwrap_or_else(|| panic!("{} has no REM expect: line", file.display())).trim().to_string();
+        for (bin, name) in [(BASIC, "basic"), (COMPILER, "compiler")] {
+            let out_file = dir.join(format!("{}-{}.bin", name, file.file_stem().unwrap().to_string_lossy())).display().to_string();
+            let out = run(bin, &[&file.display().to_string(), "proc", "math", "string", "surface", "-o", &out_file], &root());
+            assert_fails(&out, &expected);
+            assert!(stderr(&out).contains("line "), "{} {}: no line number in\n{}", name, file.display(), stderr(&out));
+            assert!(!Path::new(&out_file).exists(), "{} {} wrote a binary", name, file.display());
+        }
+    }
+}

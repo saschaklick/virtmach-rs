@@ -1,5 +1,6 @@
 10 REM Greatest common divisor in classic line-numbered style
 20 REM After END: G1 = 6, G2 = 1, G3 = 12
+25 DEFINT A-Z
 30 A = 48 : B = 18 : GOSUB 100 : G1 = A
 40 A = 17 : B = 5 : GOSUB 100 : G2 = A
 50 A = 36 : B = 84 : GOSUB 100 : G3 = A

@@ -58,6 +58,9 @@ fn main() -> Result<(), String> {
             let mut time = helpers::SimTime::default();
             let mut hw = helpers::SimPeripherals::default();
 
+            // set_color changes it, so it has to live as long as the loop, not as the surface of a frame
+            let mut palette = int_surface_sdl2::DEFAULT_PALETTE;
+
             'running: loop {
                 for event in event_pump.poll_iter() {
                     match event {
@@ -72,7 +75,7 @@ fn main() -> Result<(), String> {
 
                 let ready = time.ready();
                 // it borrows the canvas only while the vm runs, then the canvas is presented
-                let mut surface = int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ] };
+                let mut surface = int_surface_sdl2::IntSurface { canvas: &mut canvas, clip: [0, 0, W as i32, H as i32 ], palette: &mut palette };
                 interrupts!(let list, &mut time, &mut hw, &mut surface);
 
                 if ready { vm.run(4096, list); time.after_run(&vm); }

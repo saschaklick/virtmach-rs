@@ -1,5 +1,6 @@
 REM Fibonacci numbers in an array (arrays live in memory, elements 0..11)
 REM After END: F() = 0 1 1 2 3 5 8 13 21 34 55 89, TOTAL = 232
+DEFINT A-Z
 DIM F(11)
 F(0) = 0
 F(1) = 1

@@ -1,9 +1,16 @@
-REM SUB, FUNCTION, DEF FN, CALL, SHARED and the built-ins SWAP, SGN, MIN, MAX, RND.
+REM SUB, FUNCTION, DEF FN, CALL, SHARED, DECLARE and the built-ins SWAP and SGN.
 REM Variables in a SUB or FUNCTION are local unless declared SHARED and start at 0
 REM on every call. They are stored statically, so recursion is not possible.
 REM After END: G = 12, F = 120, TOTAL = 24, C1 = 2, SQ = 13, H$ = "Hello, World!",
-REM            A = 2, B = 1, S = -99, M = -11, R = 5
+REM            A = 2, B = 1, S = -99
+DEFINT A-Z
 REQ math, string
+
+DECLARE FUNCTION GCD (A, B)
+DECLARE FUNCTION FACT (N)
+DECLARE SUB ADDTOTAL (V)
+DECLARE FUNCTION COUNTER ()
+DECLARE FUNCTION GREET$ (WHO$)
 
 FUNCTION GCD(A, B)
   WHILE B <> 0
@@ -48,6 +55,4 @@ SQ = FNSQUARE(GCD(10, 4)) + FNSQUARE(3)
 H$ = GREET$("World")
 A = 1 : B = 2 : SWAP A, B
 S = SGN(-7) * 100 + SGN(0) * 10 + SGN(9)
-M = MIN(4, -2, 9) * 10 + MAX(4, -2, 9)
-R = RND(5, 5)
 END

@@ -175,10 +175,13 @@ mod tests {
     use crate::interrupt_csv::Functions;
     use virtmach::{ Runtime, RuntimeError, interrupts::{ SoftInterrupt, SoftInterruptFunction, proc, math, surface, string, dummy } };
 
+    /// math.random has one generator for all threads, the tests that depend on its values take turns
+    static RANDOM_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     const INTERRUPTS: [&str; 4] = ["proc", "math", "surface", "string"];
 
     /// Records surface calls instead of drawing.
-    struct MockSurface { calls: usize, texts: Vec<String> }
+    struct MockSurface { calls: usize, texts: Vec<String>, draws: Vec<(VMAtom, Vec<VMAtom>)> }
 
     impl SoftInterrupt for MockSurface {
         fn name(&self) -> &str { surface::NAME }
@@ -191,12 +194,13 @@ mod tests {
             let args: Vec<VMAtom> = (0..function.arguments).map(|_| vm.stack_pop()).collect();
             match op {
                 10 => self.texts.push(vm.get_str(args[3] as u8).to_string()),
-                15 => { let width = vm.get_bin(args[1] as u8).len() as VMAtom * 4; vm.stack_push(width); vm.stack_push(5); }
+                15 => { let width = vm.get_bin(args[1] as u8).len() as VMAtom * 4; vm.stack_push(width); vm.stack_push(4); }
                 16 => { vm.stack_push(64); vm.stack_push(40); }
                 17 => { vm.stack_push(5); vm.stack_push(5); }
                 18 => { for v in [0, 0, 64, 40] { vm.stack_push(v); } }
                 _ => {}
             }
+            self.draws.push((op, args));
             self.calls += 1;
         }
     }
@@ -209,6 +213,8 @@ mod tests {
         error: RuntimeError,
         surface_calls: usize,
         texts: Vec<String>,
+        /// every surface call: function number and arguments
+        draws: Vec<(VMAtom, Vec<VMAtom>)>,
         /// string entries 0..64 after the run
         strings: Vec<String>
     }
@@ -250,7 +256,7 @@ mod tests {
 
         let mut vm = VirtMach::new();
         vm.load_program(program);
-        let (mut p, mut m, mut s, mut t) = (proc::Interrupt {}, math::Interrupt {}, MockSurface { calls: 0, texts: vec![] }, string::Interrupt {});
+        let (mut p, mut m, mut s, mut t) = (proc::Interrupt {}, math::Interrupt {}, MockSurface { calls: 0, texts: vec![], draws: vec![] }, string::Interrupt {});
         let [mut time, mut d4, mut d5, mut d6, mut d7, mut periph] = [dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}, dummy::Interrupt {}];
         {
             // at their INDEX like the runtime, the numbers come from load_interrupts
@@ -265,7 +271,7 @@ mod tests {
         }
         let error = vm.error.clone();
         let strings = (0..64u8).map(|i| if vm.has_bin(i) { vm.get_str(i).to_string() } else { String::new() }).collect();
-        Run { registers: vm.registers.to_vec(), memory: vm.memory.to_vec(), state: vm.state, error, surface_calls: s.calls, texts: s.texts, strings, output }
+        Run { registers: vm.registers.to_vec(), memory: vm.memory.to_vec(), state: vm.state, error, surface_calls: s.calls, texts: s.texts, draws: s.draws, strings, output }
     }
 
     fn run_file(file: &str, halts: usize) -> Run {
@@ -277,6 +283,41 @@ mod tests {
 
     fn assert_finished(run: &Run) {
         assert_eq!(run.state, Runtime::Stp, "program did not reach END\n{}", run.output.listing);
+    }
+
+    #[test]
+    fn unsupported_types_are_rejected() {
+        let cases = [
+            ("X = 1.5", "SINGLE literal 1.5"),
+            ("X = 1E5", "SINGLE literal 1E5"),
+            ("X = 2.5D3", "DOUBLE literal 2.5D3"),
+            ("X = 1.5#", "DOUBLE (#) literal 1.5#"),
+            ("X = 3!", "SINGLE (!) literal 3!"),
+            ("X = 3&", "LONG (&) literal 3&"),
+            ("X! = 3", "SINGLE (!) variable X!"),
+            ("X# = 3", "DOUBLE (#) variable X#"),
+            ("Y& = 3", "LONG (&) variable Y&"),
+            ("DIM X AS DOUBLE", "type DOUBLE"),
+            ("DIM X AS LONG", "type LONG"),
+            ("DIM X AS STRING * 10", "fixed length strings"),
+            ("DIM X AS Point", "type POINT"),
+            ("SUB f(a AS SINGLE)\nEND SUB", "type SINGLE"),
+            ("DEFDBL A-Z", "DEFDBL is not supported"),
+            ("DIM X$ AS INTEGER", "does not match its suffix"),
+            ("DIM X% AS STRING", "does not match its suffix"),
+            ("DEFSTR Z-A", "backwards"),
+            ("DIM A(3) AS STRING * 8", "fixed length strings"),
+            ("TYPE Point", "user-defined types"),
+            ("X = CDBL(1)", "CDBL is not supported"),
+        ];
+        for (src, msg) in cases {
+            match build(src) {
+                Ok(_) => panic!("{:?} compiled", src),
+                Err(e) => assert!(e.msg.contains(msg), "{:?}: {}", src, e.msg)
+            }
+        }
+        // the supported types still work
+        assert!(build("DEFINT A-Z\nDIM X AS INTEGER\nDIM A(3) AS INTEGER\nY% = 5%\nS$ = \"a\"").is_ok());
     }
 
     #[test]
@@ -323,6 +364,7 @@ mod tests {
 
     #[test]
     fn dice() {
+        let _random = RANDOM_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let run = run_file("ci/dice.bas", 0);
         assert_finished(&run);
         let (lo, hi, doubles) = (run.get("LO"), run.get("HI"), run.get("DOUBLES"));
@@ -354,13 +396,14 @@ mod tests {
     #[test]
     fn pong() {
         let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _random = RANDOM_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let run = run_file("gfx/pong.bas", 3000);
         assert_eq!(run.state, Runtime::Hlt);
         let (ly, ry, bx, by) = (run.get("LY"), run.get("RY"), run.get("BX"), run.get("BY"));
         assert!((0..=35).contains(&ly) && (0..=35).contains(&ry), "paddles {} {}", ly, ry);
         assert!((-1..=64).contains(&bx) && (0..=39).contains(&by), "ball {} {}", bx, by);
         assert!((0..=9).contains(&run.get("SL")) && (0..=9).contains(&run.get("SR")));
-        assert!(run.output.strings.is_empty(), "{:?}", run.output.strings);
+        assert_eq!(run.output.strings, [" "], "only the blank STR$ puts in front of numbers");
         let last: Vec<String> = run.texts[run.texts.len() - 2..].to_vec();
         assert_eq!(last, [run.get("SL").to_string(), run.get("SR").to_string()]);
     }
@@ -369,7 +412,7 @@ mod tests {
     fn strings() {
         let run = run_file("ci/strings.bas", 0);
         assert_finished(&run);
-        let expected = [("HELLO", 0), ("SAME", 0), ("OTHER", 1), ("LEN1", 13), ("LEN2", 12), ("LEN3", 0)];
+        let expected = [("HELLO$", 0), ("SAME$", 0), ("OTHER$", 1), ("LEN1", 13), ("LEN2", 12), ("LEN3", 0)];
         for (name, value) in expected { assert_eq!(run.get(name), value, "{}", name); }
         assert_eq!(run.output.strings, ["Hello, World!", "Hi; \"quoted\"", "", "same entry"]);
         assert_eq!(run.surface_calls, 2);
@@ -382,7 +425,7 @@ mod tests {
         for (i, text) in run.output.strings.iter().enumerate() { assert_eq!(program.get_bin(i as u8), text.as_bytes()); }
 
         let many: String = (0..256).map(|i| format!("S = \"{}\"\n", i)).collect();
-        assert!(build(&many).err().unwrap().msg.contains("too many different strings"));
+        assert!(build(&many).err().unwrap().msg.contains("out of string slots"));
     }
 
     /// DICT with the dynamic strings is one global, tests writing to it must not run at the same time
@@ -423,7 +466,7 @@ mod tests {
         assert!(large - small < 256, "{} bytes more still allocated after 5000 instead of 100 string operations", large - small);
 
         let run = run_src("REM\nA$ = STR$(12345)\nstring.substr(A$, A$, 1, 3)\nEND", 0);
-        assert_eq!(run.strings[run.get("A$") as usize], "23");
+        assert_eq!(run.strings[run.get("A$") as usize], "12", "STR$(12345) is \" 12345\"");
     }
 
     #[test]
@@ -439,7 +482,7 @@ mod tests {
             assert_eq!(run.error, RuntimeError::DictionaryOutOfBound, "{}", what);
         }
         let run = run_src("REM\nA$ = STR$(1)\nL = LEN(A$) + LEN(\"ab\")\nEND", 0);
-        assert_eq!((run.error.clone(), run.get("L")), (RuntimeError::NoError, 3));
+        assert_eq!((run.error.clone(), run.get("L")), (RuntimeError::NoError, 4), "STR$(1) is \" 1\"");
     }
 
     #[test]
@@ -448,13 +491,18 @@ mod tests {
         let run = run_file("ci/strfuncs.bas", 0);
         assert_finished(&run);
         let text = |name: &str| run.strings[run.get(name) as usize].clone();
-        let expected = [("A$", "1234"), ("B$", "-56"), ("M$", "World"), ("R$", "World!"), ("F$", "He"), ("T$", "bc"), ("X$", "abc"), ("D$", "2"),
-            ("MIN$", "-32768"), ("ZERO$", "0"), ("C$", "Hello, World!"),
+        let expected = [("A$", " 1234"), ("B$", "-56"), ("M$", "World"), ("R$", "World!"), ("F$", "He"), ("T$", "bc"), ("X$", "abc"), ("D$", " 2"),
+            ("MIN$", "-32768"), ("ZERO$", " 0"),
             ("J$", "Hello, World!"), ("S$", "123")];
         for (name, value) in expected { assert_eq!(text(name), value, "{}", name); }
-        assert_eq!(run.get("L"), 4);
-        assert_eq!(run.texts, ["Hello, World!"]);
+        assert_eq!(run.get("L"), 5);
         assert!(run.get("A$") as usize >= run.output.strings.len(), "results are dynamic entries after the #db entries");
+
+        // the argument is evaluated once even though STR$ needs it twice, and only numbers that are not negative get the blank
+        let run = run_src("REM once\nDEFINT A-Z\nREQ string\nFUNCTION Bump\n  SHARED N\n  N = N + 1\n  Bump = N * 2 - 5\nEND FUNCTION\nA$ = STR$(Bump)\nB$ = STR$(Bump)\nC$ = STR$(3 - 10)\nD$ = STR$(2 * 3)\n", 0);
+        let text = |name: &str| run.strings[run.get(name) as usize].clone();
+        assert_eq!(run.get("N"), 2);
+        assert_eq!((text("A$").as_str(), text("B$").as_str(), text("C$").as_str(), text("D$").as_str()), ("-3", "-1", "-7", " 6"));
 
         let e = compile("test", "A$ = STR$(1)", &[], &Functions::new()).err().unwrap();
         assert!(e.msg.contains("add string to the interrupts"), "{}", e.msg);
@@ -464,6 +512,26 @@ mod tests {
         assert!(build("A$ = \"a\" + 1").err().unwrap().msg.contains("cannot join a string and a number"));
         assert!(build("N = 1 : A$ = N + \"a\"").err().unwrap().msg.contains("cannot join a string and a number"));
         assert!(!build("A$ = \"a\" : A$ = A$ + \"b\"").unwrap().listing.contains("add #"), "string join must not become a native add");
+    }
+
+    #[test]
+    fn declared_types() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/types.bas", 0);
+        assert_finished(&run);
+        let text = |name: &str| run.strings[run.get(name) as usize].clone();
+        assert_eq!(text("S$"), "w5");
+        assert_eq!(text("T$"), "abab");
+        assert_eq!(text("Q1$"), "dq");
+        assert_eq!(text("Q2$"), "dq!");
+        assert_eq!(run.get("N"), 5);
+        assert_eq!(run.get("M"), 6);
+        assert_eq!(run.get("R"), 0, "DEFINT turns Q back into an integer");
+        assert_eq!(run.array("A$").len(), 3);
+        // the same name is a string in one SUB and an integer in another
+        let run = run_src("REM scopes\nSUB a(X AS STRING)\n  Y = LEN(X)\nEND SUB\nSUB b(X AS INTEGER)\n  Z = X + 1\nEND SUB\na \"abc\"\nb 4\n", 0);
+        let names: Vec<&str> = run.output.variables.iter().map(|v| v.0.as_str()).collect();
+        assert!(names.contains(&"A.X$") && names.contains(&"B.X"), "{:?}", names);
     }
 
     #[test]
@@ -480,7 +548,7 @@ mod tests {
         let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let run = run_file("ci/subs.bas", 0);
         assert_finished(&run);
-        let expected = [("G", 12), ("F", 120), ("TOTAL", 24), ("C1", 2), ("SQ", 13), ("A", 2), ("B", 1), ("S", -99), ("M", -11), ("R", 5)];
+        let expected = [("G", 12), ("F", 120), ("TOTAL", 24), ("C1", 2), ("SQ", 13), ("A", 2), ("B", 1), ("S", -99)];
         for (name, value) in expected { assert_eq!(run.get(name), value, "{}", name); }
         assert_eq!(run.strings[run.get("H$") as usize], "Hello, World!");
         // GCD's parameters are its own, not the main program's A and B
@@ -503,11 +571,11 @@ mod tests {
             S = 0
             IF \"abc\" < \"abd\" THEN S = S + 1
             IF \"b\" > \"abc\" THEN S = S + 2
-            IF STR$(12) = \"12\" THEN S = S + 4
+            IF STR$(12) = \" 12\" THEN S = S + 4
             IF \"ab\" < \"abc\" THEN S = S + 8
             IF \"x\" <> \"x\" THEN S = S + 100
             X$ = \"hi\" : Y$ = STR$(5)
-            IF X$ = \"hi\" AND Y$ = \"5\" AND X$ <> Y$ THEN S = S + 16
+            IF X$ = \"hi\" AND Y$ = \" 5\" AND X$ <> Y$ THEN S = S + 16
             END", 0);
         assert_finished(&run);
         assert_eq!((run.get("R"), run.get("V"), run.get("S")), (31, -1, 31));
@@ -628,6 +696,301 @@ mod tests {
             let output = compile("test", &src, &interrupts, &functions).unwrap_or_else(|e| panic!("{}: line {}: {}", file.display(), e.line, e.msg));
             VirtMach::compile_owned("test", &output.listing, &interrupts, functions.clone())
                 .unwrap_or_else(|e| panic!("{}: {:?}\n{}", file.display(), e, output.listing));
+        }
+    }
+
+    #[test]
+    fn ci_programs_compile() {
+        // every program of examples/programs/ci, so a new one is picked up without touching this test:
+        // BASIC sources are compiled to a listing and assembled, listings are assembled directly
+        let names: Vec<String> = INTERRUPTS.iter().chain(&["time"]).map(|s| s.to_string()).collect();
+        let (interrupts, functions) = load_interrupts(&include_dirs(), &names).unwrap();
+        let mut files: Vec<PathBuf> = std::fs::read_dir(programs_dir().join("ci")).unwrap()
+            .map(|entry| entry.unwrap().path()).filter(|path| path.extension().is_some_and(|e| e == "bas" || e == "txt")).collect();
+        files.sort();
+        assert!(files.len() >= 12, "ci programs are missing: {:?}", files);
+        for file in files {
+            let src = std::fs::read_to_string(&file).unwrap();
+            let name = file.file_stem().unwrap().to_string_lossy().to_string();
+            let direct = VirtMach::compile_owned(&name, &src, &interrupts, functions.clone())
+                .unwrap_or_else(|e| panic!("{}: {:?}", file.display(), e)).0;
+            if file.extension().is_some_and(|e| e == "bas") {
+                let output = compile(&name, &src, &interrupts, &functions).unwrap_or_else(|e| panic!("{}: line {}: {}", file.display(), e.line, e.msg));
+                let assembled = VirtMach::compile_owned(&name, &output.listing, &interrupts, functions.clone())
+                    .unwrap_or_else(|e| panic!("{}: {:?}\n{}", file.display(), e, output.listing)).0;
+                assert_eq!(direct.data, assembled.data, "{}: compiling the source and its listing differ", file.display());
+            }
+            assert!(!direct.data.is_empty(), "{} compiled to nothing", file.display());
+        }
+    }
+
+    #[test]
+    fn syntax() {
+        let run = run_file("ci/syntax.bas", 0);
+        assert_finished(&run);
+        for (name, value) in [("A", 1), ("B", 16), ("C", 2), ("D", 17), ("E", 1), ("F", 2), ("G", 2), ("H", 2)] {
+            assert_eq!(run.get(name), value, "{}", name);
+        }
+        assert!(run.output.strings.contains(&String::from("a;b")) && run.output.strings.contains(&String::from("say \"hi\"")), "{:?}", run.output.strings);
+    }
+
+    #[test]
+    fn extensions() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/extensions.bas", 1);
+        for (name, value) in [("A", 16), ("SAMECOL", -1), ("M", -11), ("R", 5), ("SHL", 16), ("SHR", 64), ("DIRECT", 0)] {
+            assert_eq!(run.get(name), value, "{}", name);
+        }
+        assert_eq!(run.strings[run.get("C$") as usize], "Hello, World!");
+        assert_eq!(run.texts, ["Hello, World!"]);
+        assert_eq!(run.output.strings[run.get("HELLO") as usize], "Hello");
+    }
+
+    #[test]
+    fn data_read_restore() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/data.bas", 0);
+        assert_finished(&run);
+        for (name, value) in [("A", 10), ("B", -20), ("C", 255), ("AGE", 31), ("TOTAL", 10), ("FIRST", 7), ("AGAIN", 8), ("X", 10)] {
+            assert_eq!(run.get(name), value, "{}", name);
+        }
+        let text = |name: &str| run.strings[run.get(name) as usize].clone();
+        assert_eq!((text("N$"), text("W$"), text("Q$")), (String::from("Ann"), String::from("word"), String::from("a, b")));
+        assert_eq!(run.array("V"), [0, 1, 2, 3, 4]);
+        assert_eq!(run.array("_DATA").len(), 13);
+
+        // reading past the last item stops the vm with an error
+        let run = run_src("REM past\nDEFINT A-Z\nREQ math\nREAD A, B\nDATA 1\n", 0);
+        assert_eq!(run.error, RuntimeError::InterruptError);
+        assert_eq!(run.get("A"), 1);
+        // DATA in a SUB belongs to the same list, READ in a SUB works
+        let run = run_src("REM sub\nDEFINT A-Z\nREQ math\nSUB r\n  READ X\n  SHARED Y\n  Y = X\nEND SUB\nr\nr\nDATA 5, 6\n", 0);
+        assert_eq!(run.get("Y"), 6);
+        // READ needs the math interrupt for the end of the DATA
+        let e = compile("test", "DATA 1\nREAD A", &[], &Functions::new()).err().unwrap();
+        assert!(e.msg.contains("READ needs the math interrupt"), "{}", e.msg);
+    }
+
+    #[test]
+    fn randomize() {
+        let _lock = RANDOM_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/random.bas", 0);
+        assert_finished(&run);
+        assert_eq!((run.get("SAME"), run.get("DIFFERENT")), (-1, -1));
+    }
+
+    #[test]
+    fn input_and_unsupported_statements_fail_with_any_console() {
+        // the programs of ci/invalid cover them, this checks that they also fail inside a PRINT or a single line IF
+        for src in ["IF 1 THEN INPUT A", "X = INKEY$ + \"a\"", "IF 1 THEN CIRCLE (1, 1), 2", "A$ = INPUT$(1)"] {
+            assert!(build(src).is_err(), "{} compiled", src);
+        }
+    }
+
+    /// Without --cfg basic_console="surface" every console and drawing statement is an error
+    #[cfg(not(basic_console = "surface"))]
+    #[test]
+    fn console_statements_are_rejected() {
+        let cases = [("PRINT \"x\"", "PRINT"), ("? 1", "PRINT"), ("PRINT USING \"##\"; 1", "PRINT"), ("LOCATE 1, 1", "LOCATE"),
+            ("WIDTH 80", "WIDTH"), ("VIEW PRINT 1 TO 5", "VIEW PRINT"), ("IF 1 THEN CLS ELSE PRINT \"a\"", "PRINT")];
+        for (src, word) in cases {
+            let e = build(src).err().unwrap_or_else(|| panic!("{} compiled", src));
+            assert!(e.msg.contains(&format!("{} is not supported", word)) && !e.msg.contains("RUSTFLAGS"), "{}: {}", src, e.msg);
+        }
+    }
+
+    #[cfg(basic_console = "surface")]
+    fn text_draws(run: &Run) -> Vec<(VMAtom, VMAtom, String)> {
+        let positions = run.draws.iter().filter(|d| d.0 == 10).map(|d| (d.1[0], d.1[1]));
+        positions.zip(run.texts.iter()).map(|((x, y), t)| (x, y, t.clone())).collect()
+    }
+
+    #[cfg(basic_console = "surface")]
+    #[test]
+    fn print_on_the_surface() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("console/print.bas", 0);
+        assert_finished(&run);
+        // the font is 3 pixels wide with 1 pixel between the characters, 4 high with 1 pixel between the lines
+        let expected = [(0, 0, "Hello"), (0, 5, "a"), (4, 5, "b"), (0, 10, " 42 "), (0, 15, " 1 "), (56, 15, " 2 "), (0, 20, "x"), (4, 20, "y"),
+            (0, 25, "q"), (0, 35, "end")];
+        let draws = text_draws(&run);
+        assert_eq!(draws, expected.iter().map(|(x, y, t)| (*x, *y, t.to_string())).collect::<Vec<_>>());
+        assert_eq!(run.draws[0], (0, vec![virtmach::color::Color::vga(0)]), "CLS clears with the background, black to begin with");
+        assert_eq!((run.get("_PX"), run.get("_PY")), (0, 40));
+        // the cursor moves by the font's metrics, the surface is not asked for the size of a text
+        assert_eq!(run.draws.iter().filter(|d| d.0 == 15).count(), 0);
+    }
+
+    #[test]
+    fn drawing_on_the_surface() {
+        let run = run_file("ci/drawing.bas", 0);
+        assert_finished(&run);
+        let calls: Vec<(VMAtom, Vec<VMAtom>)> = run.draws.iter().filter(|d| !(15..=18).contains(&d.0)).cloned().collect();
+        // COLOR #000000, #ffffff: black on white. Colors are atoms, a number is an index of the VGA palette
+        use virtmach::color::Color;
+        let (black, white) = (Color::parse("#000000"), Color::parse("#ffffff"));
+        let expected: Vec<(VMAtom, Vec<VMAtom>)> = vec![
+            (20, vec![1, black]),                 // COLOR sets the palette entries of text 1 and 0
+            (20, vec![0, white]),
+            (0, vec![white]),                     // CLS clears with the background
+            (1, vec![10, 20, black]),             // PSET in the foreground
+            (1, vec![11, 22, Color::vga(5)]),     // PSET STEP, relative to the last point, color index 5
+            (1, vec![3, 4, white]),               // PRESET in the background
+            (4, vec![0, 0, 10, 5, black]),        // LINE
+            (4, vec![10, 5, 20, 8, Color::vga(7)]), // LINE from the last point
+            (2, vec![5, 5, 11, 11, black]),       // B, STEP is relative to the first corner
+            (3, vec![25, 20, 6, 6, Color::vga(1)]), // BF with the corners the other way round
+            (19, vec![2, 3, 10, 6]),              // VIEW
+            (19, vec![0, 0, 64, 40])              // VIEW without arguments, SCREEN draws nothing
+        ];
+        assert_eq!(calls, expected);
+    }
+
+    #[test]
+    fn colors_of_drawing_statements() {
+        use virtmach::color::Color;
+        let run = run_file("ci/colors.bas", 0);
+        assert_finished(&run);
+        let calls: Vec<(VMAtom, Vec<VMAtom>)> = run.draws.iter().filter(|d| !(15..=18).contains(&d.0)).cloned().collect();
+        let (blue, brown) = (Color::parse("#123456"), Color::parse("#654321"));
+        let expected: Vec<(VMAtom, Vec<VMAtom>)> = vec![
+            (1, vec![1, 1, Color::parse("#ff0000")]), // a color literal
+            (1, vec![2, 1, Color::parse("#00ff00")]), // a constant that was defined as one
+            (1, vec![3, 1, Color::vga(4)]),           // a constant index
+            (1, vec![4, 1, Color::vga(5)]),           // folded: RED + 1
+            (4, vec![0, 0, 5, 5, Color::vga(15)]),
+            (1, vec![5, 1, Color::vga(15)]),          // white on black to begin with
+            (1, vec![6, 1, Color::vga(0)]),
+            (20, vec![1, blue]),                      // COLOR with a foreground only
+            (1, vec![7, 1, blue]),
+            (20, vec![0, brown]),                     // COLOR with a background only
+            (1, vec![8, 1, brown]),
+            (0, vec![brown])
+        ];
+        assert_eq!(calls, expected);
+    }
+
+    #[test]
+    fn drawing_errors() {
+        let cases = [("LINE (0, 0)-(5, 5), 1, B, 3", "line styles"), ("VIEW (0, 0)-(5, 5), 1", "VIEW colors and borders"),
+            ("VIEW (0, 0)-STEP(5, 5)", "absolute coordinates"), ("COLOR 1, 2, 3", "COLOR takes")];
+        for (src, msg) in cases {
+            let e = build(&format!("REQ surface, math\n{}", src)).err().unwrap_or_else(|| panic!("{} compiled", src));
+            assert!(e.msg.contains(msg), "{}: {}", src, e.msg);
+        }
+        // the statements need the surface functions they are built on
+        for src in ["PSET (1, 2)", "LINE (0, 0)-(1, 1)", "VIEW", "COLOR 1", "CLS"] {
+            let e = compile("test", src, &[], &Functions::new()).err().unwrap();
+            assert!(e.msg.contains("add the surface interrupt"), "{}: {}", src, e.msg);
+        }
+        // SCREEN compiles to nothing
+        let code = |src: &str| build(src).unwrap().listing.lines().filter(|l| !l.trim_start().starts_with(';')).map(String::from).collect::<Vec<_>>();
+        assert_eq!(code("SCREEN 12\nX = 1"), code("X = 1"));
+    }
+
+    #[cfg(basic_console = "surface")]
+    #[test]
+    fn console_errors_on_the_surface() {
+        let cases = [("PRINT USING \"##\"; 1", "PRINT USING is not supported"), ("PRINT TAB(5)", "TAB is not supported")];
+        for (src, msg) in cases {
+            let e = build(&format!("REQ surface, math\n{}", src)).err().unwrap_or_else(|| panic!("{} compiled", src));
+            assert!(e.msg.contains(msg), "{}: {}", src, e.msg);
+        }
+        let e = compile("test", "PRINT 1", &[], &Functions::new()).err().unwrap();
+        assert!(e.msg.contains("add the surface interrupt"), "{}", e.msg);
+        // without the string interrupt there is no LEN to measure a text with
+        let names: Vec<String> = ["proc", "math", "surface"].iter().map(|s| s.to_string()).collect();
+        let (interrupts, functions) = load_interrupts(&include_dirs(), &names).unwrap();
+        let e = compile("test", "PRINT \"a\"", &interrupts, &functions).err().unwrap();
+        assert!(e.msg.contains("PRINT needs string.get_length, add the string interrupt"), "{}", e.msg);
+        // LOCATE, WIDTH and VIEW PRINT compile to nothing
+        let code = |src: &str| build(src).unwrap().listing.lines().filter(|l| !l.trim_start().starts_with(';')).map(String::from).collect::<Vec<_>>();
+        assert_eq!(code("LOCATE 1, 1\nWIDTH 80\nVIEW PRINT 1 TO 5\nX = 1"), code("X = 1"));
+    }
+
+    #[test]
+    fn peek_and_poke() {
+        let run = run_file("ci/peekpoke.bas", 0);
+        assert_finished(&run);
+        assert_eq!(run.output.arrays[0].1, 0, "the array starts at address 0");
+        for (name, value) in [("X", 77), ("Y", 5), ("Z", 9), ("W", 77)] { assert_eq!(run.get(name), value, "{}", name); }
+        assert_eq!(&run.array("A")[2..], [77, 5, 9]);
+        // outside of the memory only the vm complains
+        for src in ["X = PEEK(-1)", "POKE -1, 5", "X = PEEK(32000)", "POKE 32000, 5", "I = 32000 : X = PEEK(I)"] {
+            let run = run_src(&format!("REM\nDEFINT A-Z\n{}\nEND", src), 0);
+            assert_eq!(run.error, RuntimeError::MemoryOutOfBounds, "{}", src);
+        }
+    }
+
+    #[test]
+    fn semicolon_is_no_comment() {
+        // it separates the items of PRINT, which only exists on the surface, so it must not hide the rest of a line
+        assert!(build("X = 1 ; Y = 2").is_err());
+        assert!(build("X = 1 ' Y = 2").is_ok());
+    }
+
+    #[test]
+    fn declarations() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/decl.bas", 0);
+        assert_finished(&run);
+        for (name, value) in [("R", 63), ("S", 6), ("M", 63)] { assert_eq!(run.get(name), value, "{}", name); }
+        assert_eq!(run.strings[run.get("TXT$") as usize], "Hi!");
+        assert_eq!(&run.array("ARR")[1..], [3, 6, 9, 12, 15, 18], "OPTION BASE 1: ARR(1..6)");
+        // module variables of DIM SHARED are not prefixed with the SUB they are used in
+        assert!(run.output.variables.iter().all(|v| !v.0.ends_with(".USED") && !v.0.ends_with(".TXT$")), "{:?}", run.output.variables);
+    }
+
+    #[test]
+    fn operators() {
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_file("ci/operators.bas", 0);
+        assert_finished(&run);
+        let expected = [("A", 3), ("B", -3), ("C", 3), ("D", 1), ("F", 1), ("Y", 5), ("G", -1), ("H", 0), ("I", 0), ("J", -1), ("K", -1),
+            ("L", -7), ("M", -5), ("P", 2), ("T", 5), ("U", 31), ("V", 15), ("W", 10), ("X", 15),
+            ("SC1", 1), ("SC2", 1), ("SC3", 1), ("SC4", 1), ("LOOPS", 3), ("SC5", 2)];
+        for (name, value) in expected { assert_eq!(run.get(name), value, "{}", name); }
+    }
+
+    #[test]
+    fn constants() {
+        let folded = "CONST A = 2 + 3 * 4, B = A \\ 3, C = -A, D = A MOD 4 << 1, E = NOT 0, F = 2 ^ 5, G = (A > 3), H = A = 14, I = A < 3
+CONST S$ = \"a\" + \"b\", L = &HFF AND 15
+CONST SZ = 2 * 2
+DIM X(SZ), Y(SZ + 1) AS INTEGER
+X(SZ) = 7
+R = A + B + SZ
+X1 = B : X2 = C : X3 = D : X4 = E : X5 = F : X6 = G : X7 = H : X8 = I : X9 = L : T$ = S$
+SUB t
+  Q = A + SZ
+END SUB
+t
+";
+        let _lock = DICT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let run = run_src(&format!("REM consts\n{}", folded), 0);
+        for (name, value) in [("R", 22), ("T.Q", 18), ("X1", 4), ("X2", -14), ("X3", 4), ("X4", -1), ("X5", 32), ("X6", -1), ("X7", -1), ("X8", 0), ("X9", 15)] {
+            assert_eq!(run.get(name), value, "{}", name);
+        }
+        assert_eq!(run.strings[run.get("T$") as usize], "ab");
+        assert_eq!(run.array("X").len(), 5);
+        assert_eq!(run.array("Y").len(), 6);
+    }
+
+    #[test]
+    fn invalid_programs_fail() {
+        // every file of ci/invalid names the error it must fail with in its first line: REM expect: <part of the message>
+        let mut files: Vec<PathBuf> = std::fs::read_dir(programs_dir().join("ci/invalid")).unwrap()
+            .map(|entry| entry.unwrap().path()).filter(|path| path.extension().is_some_and(|e| e == "bas")).collect();
+        files.sort();
+        assert!(files.len() >= 10, "{:?}", files);
+        for file in files {
+            let src = std::fs::read_to_string(&file).unwrap();
+            let expected = src.lines().next().and_then(|l| l.strip_prefix("REM expect:")).unwrap_or_else(|| panic!("{} has no REM expect: line", file.display())).trim();
+            match build(&src) {
+                Ok(_) => panic!("{} compiled, expected {:?}", file.display(), expected),
+                Err(e) => assert!(e.msg.contains(expected), "{}: expected {:?}, got {}", file.display(), expected, e.msg)
+            }
         }
     }
 

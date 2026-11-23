@@ -1,6 +1,7 @@
 REM Fades a led on pin 1 in and out and moves a servo on pin 2 from 1000 to 2000
 REM microseconds, pin 0 is a plain gpio output next to them.
 REM After END: F = 1000, SERVO = 50, NONE = 0
+DEFINT A-Z
 REQ periph, time
 F = periph.pwm_setup(1, 1000)
 SERVO = periph.pwm_setup(2, 50)

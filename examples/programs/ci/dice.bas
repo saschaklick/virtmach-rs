@@ -1,5 +1,6 @@
 REM Rolls two dice 100 times using the math interrupt
 REM After END: DOUBLES = number of doubles, LO/HI = lowest/highest sum
+DEFINT A-Z
 REQ math
 DOUBLES = 0 : LO = 12 : HI = 2
 FOR N = 1 TO 100

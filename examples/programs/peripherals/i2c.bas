@@ -1,14 +1,15 @@
-REM Talks to the simulated i2c device at 0x50 with 8 registers. The first byte of a write
+REM Talks to the simulated i2c device at &H50 with 8 registers. The first byte of a write
 REM sets the register pointer, reads continue from it and wrap around after register 7.
 REM After END: MISSING = -1, FOUND = 0, B6 = 102 (0x66), B7 = 119 (0x77), B0 = 0,
 REM            R3 = 79 ("O"), BAD = -2
+DEFINT A-Z
 REQ periph, time
-DEV = 0x50
+DEV = &H50
 periph.i2c_setup(0, 100)
-MISSING = periph.i2c_probe(0, 0x51)
+MISSING = periph.i2c_probe(0, &H51)
 FOUND = periph.i2c_probe(0, DEV)
 FOR R = 0 TO 7
-  N = periph.i2c_write_reg(0, DEV, R, R * 0x11)
+  N = periph.i2c_write_reg(0, DEV, R, R * &H11)
   OK = time.wait_until(0, 200)
 NEXT R
 N = periph.i2c_write_byte(0, DEV, 6)

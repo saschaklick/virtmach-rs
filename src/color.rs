@@ -47,6 +47,13 @@ impl Color {
         VMAtom::from_be_bytes(bytes)
     }
 
+    /// Encodes channels given as atoms, 0 to 255, as an opaque color atom. Values outside of the range are cut to it.
+    /// This is the rgb function of the surface interrupt.
+    pub fn from_rgb(r: VMAtom, g: VMAtom, b: VMAtom) -> VMAtom {
+        let channel = |v: VMAtom| (v as i64).clamp(0, 255) as u8;
+        Self::from_rgba(channel(r), channel(g), channel(b), 255)
+    }
+
     /// Decodes a color atom to [r, g, b, a]. Alpha becomes 0 or 255, the color channels are widened to
     /// 8 bits by repeating their bits, so full intensity is 255. Works on the bytes of the atom.
     pub fn to_rgba(atom: VMAtom) -> [u8; 4] {
@@ -60,6 +67,67 @@ impl Color {
     }
 }
 
+/// The default palette of VGA (mode 13h) as 8 bit RGB: 16 colors, 16 grays and 9 groups of 24 colors that
+/// sweep the hues in three brightnesses and three saturations, then 8 blacks. Index n of BASIC drawing
+/// statements is looked up here when compiling.
+pub static VGA_PALETTE: [[u8; 3]; 256] = vga_palette();
+
+const fn vga_palette() -> [[u8; 3]; 256] {
+    // the DAC has 6 bits per channel, they are widened to 8
+    const fn wide(v: u8) -> u8 { (v << 2) | (v >> 4) }
+    const EGA: [[u8; 3]; 16] = [[0, 0, 0], [0, 0, 42], [0, 42, 0], [0, 42, 42], [42, 0, 0], [42, 0, 42], [42, 21, 0], [42, 42, 42],
+        [21, 21, 21], [21, 21, 63], [21, 63, 21], [21, 63, 63], [63, 21, 21], [63, 21, 63], [63, 63, 21], [63, 63, 63]];
+    const GRAY: [u8; 16] = [0, 5, 8, 11, 14, 17, 20, 24, 28, 32, 36, 40, 45, 50, 56, 63];
+    // highest and lowest channel of each group of 24
+    const GROUPS: [(u8, u8); 9] = [(63, 0), (63, 31), (63, 45), (28, 0), (28, 14), (28, 20), (16, 0), (16, 8), (16, 11)];
+
+    let mut palette = [[0u8; 3]; 256];
+    let mut i = 0;
+    while i < 16 {
+        palette[i] = EGA[i];
+        palette[16 + i] = [GRAY[i]; 3];
+        i += 1;
+    }
+    let mut group = 0;
+    while group < 9 {
+        let (high, low) = GROUPS[group];
+        let range = high - low;
+        let mut pos = 0u8;
+        while pos < 24 {
+            // one of the four steps from one end of the range to the other, rounded down at a half
+            let (up, down) = {
+                let k = (pos % 4 + if pos % 4 == 0 && pos > 0 { 4 } else { 0 }) as u8;
+                let step = (k * range + 1) / 4;
+                (low + step, high - step)
+            };
+            palette[32 + group * 24 + pos as usize] = match pos {
+                0..=4 => [up, low, high],
+                5..=8 => [high, low, down],
+                9..=12 => [high, up, low],
+                13..=16 => [down, high, low],
+                17..=20 => [low, high, up],
+                _ => [low, down, high]
+            };
+            pos += 1;
+        }
+        group += 1;
+    }
+    let mut i = 0;
+    while i < 248 {
+        palette[i] = [wide(palette[i][0]), wide(palette[i][1]), wide(palette[i][2])];
+        i += 1;
+    }
+    palette
+}
+
+impl Color {
+    /// The opaque color atom of an entry of the default VGA palette
+    pub fn vga(index: u8) -> VMAtom {
+        let [r, g, b] = VGA_PALETTE[index as usize];
+        Self::from_rgba(r, g, b, 255)
+    }
+}
+
 /// Widens a value of the given number of bits (1 to 8) to 8 bits by repeating its bits
 fn widen(value: u8, bits: u8) -> u8 {
     let mut result = 0u8;
@@ -69,6 +137,42 @@ fn widen(value: u8, bits: u8) -> u8 {
         result |= if shift >= 0 { value << shift } else { value >> -shift };
     }
     result
+}
+
+#[cfg(test)]
+mod rgb_tests {
+    use super::*;
+
+    #[test]
+    fn vga_palette_matches_the_default_one() {
+        let p = &VGA_PALETTE;
+        // the 16 colors
+        assert_eq!([p[0], p[1], p[4], p[6], p[7], p[8], p[12], p[15]],
+            [[0, 0, 0], [0, 0, 170], [170, 0, 0], [170, 85, 0], [170, 170, 170], [85, 85, 85], [255, 85, 85], [255, 255, 255]]);
+        // the grays
+        assert_eq!([p[16], p[17], p[24], p[31]], [[0, 0, 0], [20, 20, 20], [113, 113, 113], [255, 255, 255]]);
+        // the hues of the first group: blue, magenta, red, yellow, green, cyan, the one before blue
+        assert_eq!([p[32], p[36], p[40], p[44], p[48], p[52], p[55]],
+            [[0, 0, 255], [255, 0, 255], [255, 0, 0], [255, 255, 0], [0, 255, 0], [0, 255, 255], [0, 65, 255]]);
+        // the steps between them are rounded like the DAC values of the real palette: 16, 31, 47
+        assert_eq!([p[33], p[34], p[35]], [[65, 0, 255], [125, 0, 255], [190, 0, 255]]);
+        // lighter, less saturated and darker groups, the last color of the last group, the 8 blacks
+        assert_eq!([p[56], p[80], p[104], p[128], p[247]], [[125, 125, 255], [182, 182, 255], [0, 0, 113], [56, 56, 113], [44, 48, 65]]);
+        assert!(p[248..].iter().all(|c| *c == [0, 0, 0]));
+        assert_eq!(Color::to_rgba(Color::vga(15))[..3], [255, 255, 255]);
+        assert!(Color::vga(0) < 0, "opaque black is a negative atom");
+    }
+
+    #[test]
+    fn rgb_is_opaque_and_cut_to_the_channel_range() {
+        assert_eq!(Color::from_rgb(100, 0, 50), Color::from_rgba(100, 0, 50, 255));
+        // the largest and smallest atoms are cut to 0..255, whatever the size of an atom is
+        let top = (VMAtom::MAX as i64).min(255) as u8;
+        assert_eq!(Color::from_rgb(VMAtom::MAX, VMAtom::MIN, 7), Color::from_rgba(top, 0, 7, 255));
+        assert!(Color::from_rgb(0, 0, 0) < 0, "alpha 1 is a negative atom");
+        #[cfg(not(feature = "i8"))]
+        assert_eq!(Color::to_rgba(Color::from_rgb(255, 255, 255)), [255, 255, 255, 255]);
+    }
 }
 
 #[cfg(all(test, feature = "basic"))]
