@@ -243,7 +243,7 @@ impl <'a, S: Storage> VirtMach <'a, S> {
 
     pub fn reset(&mut self) {
         self.processor = Processor::default();   
-        self.state = Runtime::Hlt;
+        self.state = Runtime::Ini;
         self.error = RuntimeError::NoError;        
         self.cycle_cnt = 0;
         self.registers.fill(0);
